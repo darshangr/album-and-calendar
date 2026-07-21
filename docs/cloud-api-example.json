@@ -1,0 +1,38 @@
+{
+  "events": [
+    {
+      "id": "evt-001",
+      "title": "Grandma's Birthday",
+      "notes": "Call in the morning",
+      "type": "BIRTHDAY",
+      "start_epoch_millis": 1767225600000,
+      "all_day": true,
+      "recurrence": "YEARLY"
+    },
+    {
+      "id": "evt-002",
+      "title": "Soccer practice",
+      "notes": "Bring water bottle",
+      "type": "KIDS_CLASS",
+      "start_epoch_millis": 1767225600000,
+      "end_epoch_millis": 1767229200000,
+      "recurrence": "WEEKLY"
+    }
+  ],
+  "photos": [
+    {
+      "id": "photo-001",
+      "url": "https://example.com/photos/beach.jpg",
+      "caption": "Summer vacation",
+      "display_duration_seconds": 12,
+      "sort_order": 0
+    },
+    {
+      "id": "photo-002",
+      "url": "https://example.com/photos/birthday.jpg",
+      "caption": "Birthday party",
+      "display_duration_seconds": 8,
+      "sort_order": 1
+    }
+  ]
+}

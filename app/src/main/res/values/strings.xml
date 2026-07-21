@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Family Hub</string>
+    <string name="calendar_title">Family Calendar</string>
+    <string name="photos_title">Family Photos</string>
+    <string name="settings_title">Settings</string>
+    <string name="add_event">Add event</string>
+    <string name="add_photo">Add photo</string>
+    <string name="sync_now">Sync now</string>
+    <string name="double_tap_hint">Double tap to open calendar</string>
+    <string name="no_events">No events for this day</string>
+    <string name="no_photos">Add photos to start the slideshow</string>
+    <string name="event_title">Title</string>
+    <string name="event_notes">Notes</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="photo_duration_seconds">Display duration (seconds)</string>
+    <string name="calendar_idle_timeout">Switch to photos after inactivity</string>
+    <string name="cloud_sync">Cloud sync</string>
+    <string name="cloud_url">Cloud API base URL</string>
+    <string name="cloud_api_key">API key (stored securely on device)</string>
+    <string name="sync_interval">Background sync interval (hours)</string>
+    <string name="keep_screen_on">Keep screen on while plugged in</string>
+    <string name="today">Today</string>
+    <string name="upcoming">Upcoming</string>
+    <string name="recurring">Recurring</string>
+    <string name="source_local">Local</string>
+    <string name="source_cloud">Cloud</string>
+    <string name="event_type_birthday">Birthday</string>
+    <string name="event_type_party">Party</string>
+    <string name="event_type_event">Event</string>
+    <string name="event_type_class">Kids class</string>
+    <string name="event_type_other">Other</string>
+    <string name="all_day">All day</string>
+    <string name="repeat_weekly">Repeats weekly</string>
+    <string name="repeat_yearly">Repeats yearly</string>
+    <string name="minutes_short">%1$d min</string>
+    <string name="seconds_short">%1$d sec</string>
+    <string name="sync_success">Sync completed</string>
+    <string name="sync_failed">Sync failed. Check your connection and settings.</string>
+    <string name="cloud_not_configured">Configure cloud settings to enable remote sync</string>
+</resources>
