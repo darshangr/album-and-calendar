@@ -7,6 +7,9 @@ import com.familyhub.display.data.model.ContentSource
 import com.familyhub.display.data.model.EventRecurrence
 import com.familyhub.display.data.model.EventType
 import com.familyhub.display.data.model.PhotoItem
+import com.familyhub.display.data.google.GoogleAuthManager
+import com.familyhub.display.data.google.GoogleCalendarSyncService
+import com.familyhub.display.data.google.GooglePhotosSyncService
 import com.familyhub.display.data.repository.CalendarRepository
 import com.familyhub.display.data.repository.PhotoRepository
 import com.familyhub.display.data.repository.SyncRepository
@@ -19,12 +22,18 @@ class AppContainer(context: Context) {
     private val database = FamilyHubDatabase.getInstance(context)
 
     val settingsRepository = SettingsRepository(context)
+    val googleAuthManager = GoogleAuthManager(context)
+    val googleCalendarSyncService = GoogleCalendarSyncService(googleAuthManager)
+    val googlePhotosSyncService = GooglePhotosSyncService(googleAuthManager)
     val calendarRepository = CalendarRepository(database.calendarEventDao())
     val photoRepository = PhotoRepository(database.photoItemDao())
     val syncRepository = SyncRepository(
         calendarRepository = calendarRepository,
         photoRepository = photoRepository,
         settingsRepository = settingsRepository,
+        googleAuthManager = googleAuthManager,
+        googleCalendarSyncService = googleCalendarSyncService,
+        googlePhotosSyncService = googlePhotosSyncService,
     )
 
     suspend fun seedSampleDataIfEmpty() {

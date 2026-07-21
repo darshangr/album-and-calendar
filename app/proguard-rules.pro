@@ -1,2 +1,4 @@
-# Keep Room entities
 -keep class com.familyhub.display.data.model.** { *; }
+-keep class com.google.api.** { *; }
+-dontwarn com.google.api.client.**
+-dontwarn org.apache.http.**

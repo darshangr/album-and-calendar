@@ -33,6 +33,9 @@ interface CalendarEventDao {
     @Query("DELETE FROM calendar_events WHERE source = 'CLOUD'")
     suspend fun deleteCloudEvents()
 
+    @Query("DELETE FROM calendar_events WHERE source = 'GOOGLE'")
+    suspend fun deleteGoogleEvents()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<CalendarEventEntity>)
 }
@@ -53,6 +56,9 @@ interface PhotoItemDao {
 
     @Query("DELETE FROM photo_items WHERE source = 'CLOUD'")
     suspend fun deleteCloudPhotos()
+
+    @Query("DELETE FROM photo_items WHERE source = 'GOOGLE'")
+    suspend fun deleteGooglePhotos()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<PhotoItemEntity>)

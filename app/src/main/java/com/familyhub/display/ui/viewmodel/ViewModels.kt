@@ -30,6 +30,8 @@ data class MainUiState(
     val settings: AppSettings = AppSettings(),
     val syncMessage: String? = null,
     val isSyncing: Boolean = false,
+    val googleAccount: com.familyhub.display.data.google.GoogleAccountState =
+        com.familyhub.display.data.google.GoogleAccountState(),
 )
 
 class MainViewModel(
@@ -48,6 +50,18 @@ class MainViewModel(
         viewModelScope.launch {
             container.settingsRepository.settings.collect { appSettings ->
                 _uiState.update { it.copy(settings = appSettings) }
+            }
+        }
+
+        viewModelScope.launch {
+            container.googleAuthManager.accountState.collect { account ->
+                _uiState.update { it.copy(googleAccount = account) }
+            }
+        }
+
+        viewModelScope.launch {
+            if (container.googleAuthManager.getSignedInAccount() != null) {
+                syncNow()
             }
         }
     }
@@ -80,13 +94,35 @@ class MainViewModel(
     fun syncNow() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncMessage = null) }
-            val result = container.syncRepository.syncFromCloud()
+            val result = container.syncRepository.syncNow()
             _uiState.update {
                 it.copy(
                     isSyncing = false,
-                    syncMessage = if (result.isSuccess) "Sync completed" else "Sync failed. Check settings.",
+                    syncMessage = when {
+                        result.isSuccess && result.getOrNull() == com.familyhub.display.data.repository.SyncSource.GOOGLE ->
+                            "Google Calendar and Photos synced"
+                        result.isSuccess -> "Sync completed"
+                        else -> result.exceptionOrNull()?.message ?: "Sync failed. Check settings."
+                    },
                 )
             }
+        }
+    }
+
+    fun signInWithGoogle() = container.googleAuthManager.getSignInIntent()
+
+    fun handleGoogleSignInResult(data: android.content.Intent?) {
+        container.googleAuthManager.handleSignInResult(data)
+        viewModelScope.launch {
+            syncNow()
+        }
+    }
+
+    fun signOutGoogle() {
+        viewModelScope.launch {
+            container.googleAuthManager.signOut()
+            container.calendarRepository.replaceGoogleEvents(emptyList())
+            container.photoRepository.replaceGooglePhotos(emptyList())
         }
     }
 

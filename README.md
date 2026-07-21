@@ -52,7 +52,21 @@ Or open the project in Android Studio and run on your Samsung Tab S11.
 ### First launch
 The app seeds sample events and demo photos so you can explore immediately. Replace them with your own content via **Add event** or cloud sync.
 
-## Cloud sync
+## Google Sign-In (Calendar + Photos)
+
+The app supports **Sign in with Google** to pull events and photos directly — no custom backend required.
+
+1. Open **Settings → Sign in with Google**
+2. Use your family Gmail account (see setup guide below)
+3. Tap **Sync now** to refresh
+
+Setup requires a Google Cloud project with OAuth credentials. See **[docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md)** for step-by-step instructions (APIs, SHA-1 fingerprint, Web client ID).
+
+When signed in, sync pulls:
+- **Google Calendar** — all readable calendars (365 days ahead)
+- **Google Photos** — up to 100 recent photos
+
+## Custom cloud sync (optional)
 
 Configure in **Settings → Cloud sync**:
 

@@ -17,6 +17,7 @@ enum class EventRecurrence {
 enum class ContentSource {
     LOCAL,
     CLOUD,
+    GOOGLE,
 }
 
 data class CalendarEvent(

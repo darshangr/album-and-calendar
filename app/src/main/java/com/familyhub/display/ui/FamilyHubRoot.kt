@@ -1,6 +1,8 @@
 package com.familyhub.display.ui
 
 import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +45,12 @@ fun FamilyHubRoot(container: AppContainer) {
     var overlay by remember { mutableStateOf(OverlayScreen.NONE) }
     val context = LocalContext.current
 
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        mainViewModel.handleGoogleSignInResult(result.data)
+    }
+
     DisposableEffect(mainState.settings.keepScreenOn) {
         val activity = context as? android.app.Activity
         if (mainState.settings.keepScreenOn) {
@@ -66,6 +74,7 @@ fun FamilyHubRoot(container: AppContainer) {
         OverlayScreen.SETTINGS -> {
             SettingsScreen(
                 settings = mainState.settings,
+                googleAccount = mainState.googleAccount,
                 onBack = { overlay = OverlayScreen.NONE },
                 onSave = { updated ->
                     mainViewModel.updateSettings { updated }
@@ -76,6 +85,10 @@ fun FamilyHubRoot(container: AppContainer) {
                     overlay = OverlayScreen.NONE
                     mainViewModel.switchToPhotos()
                 },
+                onSignInWithGoogle = {
+                    googleSignInLauncher.launch(mainViewModel.signInWithGoogle())
+                },
+                onSignOutGoogle = mainViewModel::signOutGoogle,
             )
         }
         OverlayScreen.NONE -> {
