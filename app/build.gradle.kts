@@ -19,6 +19,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Replace with your OAuth 2.0 Web client ID from Google Cloud Console.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"REPLACE_WITH_WEB_CLIENT_ID\"")
     }
 
     buildTypes {
@@ -80,6 +83,12 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    implementation("com.google.api-client:google-api-client-android:2.7.2")
+    implementation("com.google.http-client:google-http-client-gson:1.45.1")
+    implementation("com.google.apis:google-api-services-calendar:v3-rev20250404-2.0.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

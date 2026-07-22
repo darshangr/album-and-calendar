@@ -17,6 +17,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.familyhub.display.data.google.GoogleAccountState
 import com.familyhub.display.data.settings.AppSettings
 import java.time.Instant
 import java.time.ZoneId
@@ -41,10 +43,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    googleAccount: GoogleAccountState,
     onBack: () -> Unit,
     onSave: (AppSettings) -> Unit,
     onSync: () -> Unit,
     onSwitchToPhotosNow: () -> Unit,
+    onSignInWithGoogle: () -> Unit,
+    onSignOutGoogle: () -> Unit,
 ) {
     var draft by remember(settings) { mutableStateOf(settings) }
 
@@ -69,6 +74,32 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(4.dp))
+
+            SectionTitle("Google account")
+            if (googleAccount.isSignedIn) {
+                Text(
+                    text = "Signed in as ${googleAccount.email ?: googleAccount.displayName ?: "Google account"}",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = "Calendar and Photos sync from this account.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = onSignOutGoogle, modifier = Modifier.fillMaxWidth()) {
+                    Text("Sign out")
+                }
+            } else {
+                Text(
+                    text = "Sign in with your family Gmail account to sync Google Calendar events and Google Photos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(onClick = onSignInWithGoogle, modifier = Modifier.fillMaxWidth()) {
+                    Text("Sign in with Google")
+                }
+            }
+
             SectionTitle("Display behavior")
             Text("Switch to photos after inactivity: ${draft.calendarIdleTimeoutMinutes} min")
             Slider(
@@ -98,7 +129,12 @@ fun SettingsScreen(
                 )
             }
 
-            SectionTitle("Cloud sync")
+            SectionTitle("Custom cloud sync (optional)")
+            Text(
+                text = "Used only when Google is not signed in.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = draft.cloudBaseUrl,
                 onValueChange = { draft = draft.copy(cloudBaseUrl = it) },

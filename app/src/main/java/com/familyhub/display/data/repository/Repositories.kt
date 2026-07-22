@@ -63,6 +63,11 @@ class CalendarRepository(
         dao.insertAll(events.map { it.toEntity() })
     }
 
+    suspend fun replaceGoogleEvents(events: List<CalendarEvent>) {
+        dao.deleteGoogleEvents()
+        dao.insertAll(events.map { it.toEntity() })
+    }
+
     private fun expandRecurringEvent(
         event: CalendarEvent,
         visibleMonth: LocalDate,
@@ -141,13 +146,51 @@ class PhotoRepository(
         dao.deleteCloudPhotos()
         dao.insertAll(photos.map { it.toEntity() })
     }
+
+    suspend fun replaceGooglePhotos(photos: List<PhotoItem>) {
+        dao.deleteGooglePhotos()
+        dao.insertAll(photos.map { it.toEntity() })
+    }
 }
 
 class SyncRepository(
     private val calendarRepository: CalendarRepository,
     private val photoRepository: PhotoRepository,
     private val settingsRepository: SettingsRepository,
+    private val googleAuthManager: com.familyhub.display.data.google.GoogleAuthManager,
+    private val googleCalendarSyncService: com.familyhub.display.data.google.GoogleCalendarSyncService,
+    private val googlePhotosSyncService: com.familyhub.display.data.google.GooglePhotosSyncService,
 ) {
+    suspend fun syncNow(): Result<SyncSource> {
+        return if (googleAuthManager.getSignedInAccount() != null) {
+            syncFromGoogle()
+        } else {
+            syncFromCloud().map { SyncSource.CUSTOM_CLOUD }
+        }
+    }
+
+    suspend fun syncFromGoogle(): Result<SyncSource> {
+        return runCatching {
+            val settings = settingsRepository.settings.first()
+            authManagerRequireSignedIn()
+
+            val events = googleCalendarSyncService.fetchEvents()
+            val photos = googlePhotosSyncService.fetchPhotos(
+                defaultDurationSeconds = settings.defaultPhotoDurationSeconds,
+            )
+
+            calendarRepository.replaceGoogleEvents(events)
+            photoRepository.replaceGooglePhotos(photos)
+
+            googleAuthManager.getAccessToken()
+
+            settingsRepository.update { current ->
+                current.copy(lastSyncEpochMillis = System.currentTimeMillis())
+            }
+            SyncSource.GOOGLE
+        }
+    }
+
     suspend fun syncFromCloud(): Result<Unit> {
         return runCatching {
             val settings = settingsRepository.settings.first()
@@ -165,4 +208,15 @@ class SyncRepository(
             }
         }
     }
+
+    private fun authManagerRequireSignedIn() {
+        if (googleAuthManager.getSignedInAccount() == null) {
+            throw IllegalStateException("Not signed in to Google")
+        }
+    }
+}
+
+enum class SyncSource {
+    GOOGLE,
+    CUSTOM_CLOUD,
 }
