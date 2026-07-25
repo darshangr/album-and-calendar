@@ -311,6 +311,13 @@ class PhotoViewModel(
         _uiState.update { it.copy(currentIndex = nextIndex) }
     }
 
+    fun previousPhoto() {
+        val photos = _uiState.value.photos
+        if (photos.isEmpty()) return
+        val prevIndex = (_uiState.value.currentIndex - 1 + photos.size) % photos.size
+        _uiState.update { it.copy(currentIndex = prevIndex) }
+    }
+
     fun showAddDialog() {
         _uiState.update { it.copy(showAddDialog = true, editingPhoto = null) }
     }
