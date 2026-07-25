@@ -2,11 +2,12 @@ package com.familyhub.display.data.google
 
 import android.content.Context
 import android.content.Intent
-import com.familyhub.display.BuildConfig
+import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.util.ExponentialBackOff
@@ -18,11 +19,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 object GoogleScopes {
-    const val PHOTOS_READONLY = "https://www.googleapis.com/auth/photoslibrary.readonly"
+    const val DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly"
 
     val ALL = listOf(
         CalendarScopes.CALENDAR_READONLY,
-        PHOTOS_READONLY,
+        DRIVE_READONLY,
     )
 }
 
@@ -32,21 +33,27 @@ data class GoogleAccountState(
     val displayName: String? = null,
 )
 
+/**
+ * Thrown when Google requires the user to approve an additional scope
+ * (e.g. Drive) that wasn't granted at sign-in. The [consentIntent] must be
+ * launched from an Activity to show Google's approval screen.
+ */
+class GoogleConsentRequiredException(val consentIntent: Intent) :
+    Exception("Additional Google permission required")
+
 class GoogleAuthManager(private val context: Context) {
     private val _accountState = MutableStateFlow(readAccountState())
     val accountState: StateFlow<GoogleAccountState> = _accountState.asStateFlow()
 
     val signInClient: GoogleSignInClient by lazy {
-        val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        // On-device Calendar/Photos access relies on the Android OAuth client
+        // (package name + SHA-1) registered in Google Cloud, not a web client ID.
+        // We only need email + the API scopes here.
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(Scope(CalendarScopes.CALENDAR_READONLY))
-            .requestScopes(Scope(GoogleScopes.PHOTOS_READONLY))
-
-        if (BuildConfig.GOOGLE_WEB_CLIENT_ID != "REPLACE_WITH_WEB_CLIENT_ID") {
-            builder.requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-        }
-
-        val options = builder.build()
+            .requestScopes(Scope(GoogleScopes.DRIVE_READONLY))
+            .build()
         GoogleSignIn.getClient(context, options)
     }
 
@@ -67,10 +74,17 @@ class GoogleAuthManager(private val context: Context) {
         val cached = getCachedAccessToken()
         if (cached != null) return@withContext cached
 
-        val token = runCatching { getCredential()?.token }.getOrNull()
-        cachedAccessToken = token
-        cachedAccessTokenEpochMillis = System.currentTimeMillis()
-        token
+        val credential = getCredential() ?: return@withContext null
+        try {
+            val token = credential.token
+            cachedAccessToken = token
+            cachedAccessTokenEpochMillis = System.currentTimeMillis()
+            token
+        } catch (e: UserRecoverableAuthException) {
+            // Google needs the user to approve a scope (e.g. Drive) interactively.
+            e.intent?.let { throw GoogleConsentRequiredException(it) }
+            throw e
+        }
     }
 
     private fun clearTokenCache() {
@@ -86,11 +100,16 @@ class GoogleAuthManager(private val context: Context) {
         _accountState.value = GoogleAccountState()
     }
 
-    fun handleSignInResult(data: Intent?) {
+    fun handleSignInResult(data: Intent?): Result<GoogleAccountState> {
         val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-        runCatching { task.getResult(com.google.android.gms.common.api.ApiException::class.java) }
-        clearTokenCache()
-        _accountState.value = readAccountState()
+        return runCatching {
+            task.getResult(ApiException::class.java)
+            clearTokenCache()
+            readAccountState().also { _accountState.value = it }
+        }.onFailure {
+            clearTokenCache()
+            _accountState.value = readAccountState()
+        }
     }
 
     companion object {

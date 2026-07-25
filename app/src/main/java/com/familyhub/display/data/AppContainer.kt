@@ -9,7 +9,7 @@ import com.familyhub.display.data.model.EventType
 import com.familyhub.display.data.model.PhotoItem
 import com.familyhub.display.data.google.GoogleAuthManager
 import com.familyhub.display.data.google.GoogleCalendarSyncService
-import com.familyhub.display.data.google.GooglePhotosSyncService
+import com.familyhub.display.data.google.GoogleDriveSyncService
 import com.familyhub.display.data.repository.CalendarRepository
 import com.familyhub.display.data.repository.PhotoRepository
 import com.familyhub.display.data.repository.SyncRepository
@@ -21,10 +21,12 @@ import java.time.ZoneId
 class AppContainer(context: Context) {
     private val database = FamilyHubDatabase.getInstance(context)
 
+    private val appContext = context.applicationContext
+
     val settingsRepository = SettingsRepository(context)
     val googleAuthManager = GoogleAuthManager(context)
     val googleCalendarSyncService = GoogleCalendarSyncService(googleAuthManager)
-    val googlePhotosSyncService = GooglePhotosSyncService(googleAuthManager)
+    val googleDriveSyncService = GoogleDriveSyncService(appContext, googleAuthManager)
     val calendarRepository = CalendarRepository(database.calendarEventDao())
     val photoRepository = PhotoRepository(database.photoItemDao())
     val syncRepository = SyncRepository(
@@ -33,7 +35,7 @@ class AppContainer(context: Context) {
         settingsRepository = settingsRepository,
         googleAuthManager = googleAuthManager,
         googleCalendarSyncService = googleCalendarSyncService,
-        googlePhotosSyncService = googlePhotosSyncService,
+        googleDriveSyncService = googleDriveSyncService,
     )
 
     suspend fun seedSampleDataIfEmpty() {

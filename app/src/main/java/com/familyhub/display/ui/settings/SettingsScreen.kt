@@ -82,8 +82,25 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    text = "Calendar and Photos sync from this account.",
+                    text = "Calendar syncs from this account. Photos come from shared Google Drive folders.",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = draft.driveFolderId,
+                    onValueChange = { draft = draft.copy(driveFolderId = it) },
+                    label = { Text("Google Drive photo folders (one link/ID per line)") },
+                    placeholder = { Text("https://drive.google.com/drive/folders/…") },
+                    minLines = 2,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "Paste one or more Drive folder links (one per line). Subfolders are " +
+                        "included automatically, so you can also point at a single parent folder. " +
+                        "Share each folder with this account. Images are downloaded and cached for " +
+                        "the slideshow; new photos appear on the next sync.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(onClick = onSignOutGoogle, modifier = Modifier.fillMaxWidth()) {
@@ -91,7 +108,8 @@ fun SettingsScreen(
                 }
             } else {
                 Text(
-                    text = "Sign in with your family Gmail account to sync Google Calendar events and Google Photos.",
+                    text = "Sign in with your family Gmail account to sync Google Calendar events and " +
+                        "photos from a shared Google Drive folder.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

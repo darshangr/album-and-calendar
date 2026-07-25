@@ -32,6 +32,7 @@ data class MainUiState(
     val isSyncing: Boolean = false,
     val googleAccount: com.familyhub.display.data.google.GoogleAccountState =
         com.familyhub.display.data.google.GoogleAccountState(),
+    val pendingConsentIntent: android.content.Intent? = null,
 )
 
 class MainViewModel(
@@ -95,26 +96,76 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncMessage = null) }
             val result = container.syncRepository.syncNow()
-            _uiState.update {
-                it.copy(
-                    isSyncing = false,
-                    syncMessage = when {
-                        result.isSuccess && result.getOrNull() == com.familyhub.display.data.repository.SyncSource.GOOGLE ->
-                            "Google Calendar and Photos synced"
-                        result.isSuccess -> "Sync completed"
-                        else -> result.exceptionOrNull()?.message ?: "Sync failed. Check settings."
-                    },
-                )
-            }
+            result.fold(
+                onSuccess = { summary ->
+                    _uiState.update {
+                        it.copy(isSyncing = false, syncMessage = buildSyncMessage(summary))
+                    }
+                },
+                onFailure = { error ->
+                    if (error is com.familyhub.display.data.google.GoogleConsentRequiredException) {
+                        _uiState.update {
+                            it.copy(
+                                isSyncing = false,
+                                pendingConsentIntent = error.consentIntent,
+                                syncMessage = "Approve Google Drive access to finish syncing photos.",
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isSyncing = false,
+                                syncMessage = error.message ?: "Sync failed. Check settings.",
+                            )
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    fun clearPendingConsent() {
+        _uiState.update { it.copy(pendingConsentIntent = null) }
+    }
+
+    fun onConsentResult() {
+        container.googleAuthManager.refreshAccountState()
+        syncNow()
+    }
+
+    private fun buildSyncMessage(
+        summary: com.familyhub.display.data.repository.SyncSummary,
+    ): String {
+        if (summary.source == com.familyhub.display.data.repository.SyncSource.CUSTOM_CLOUD) {
+            return "Sync completed"
+        }
+        return buildString {
+            append("Synced ${summary.eventCount} events")
+            if (summary.photoCount > 0) append(" and ${summary.photoCount} photos")
+            summary.calendarError?.let { append("  •  Calendar: $it") }
+            summary.photosError?.let { append("  •  Photos: $it") }
         }
     }
 
     fun signInWithGoogle() = container.googleAuthManager.getSignInIntent()
 
     fun handleGoogleSignInResult(data: android.content.Intent?) {
-        container.googleAuthManager.handleSignInResult(data)
-        viewModelScope.launch {
+        val result = container.googleAuthManager.handleSignInResult(data)
+        val signedIn = result.getOrNull()?.isSignedIn == true
+        if (signedIn) {
             syncNow()
+        } else {
+            val error = result.exceptionOrNull()
+            val statusCode = (error as? com.google.android.gms.common.api.ApiException)?.statusCode
+            _uiState.update {
+                it.copy(
+                    syncMessage = buildString {
+                        append("Google sign-in failed")
+                        if (statusCode != null) append(" (code $statusCode)")
+                        append(". Check the Android OAuth client (SHA-1 + package), enabled APIs, and test user.")
+                    },
+                )
+            }
         }
     }
 

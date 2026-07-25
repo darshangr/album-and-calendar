@@ -60,11 +60,19 @@ The app supports **Sign in with Google** to pull events and photos directly — 
 2. Use your family Gmail account (see setup guide below)
 3. Tap **Sync now** to refresh
 
-Setup requires a Google Cloud project with OAuth credentials. See **[docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md)** for step-by-step instructions (APIs, SHA-1 fingerprint, Web client ID).
+Setup requires a Google Cloud project with an **Android OAuth client** (package + SHA-1) — no client ID or secret is baked into the app. See **[docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md)** for step-by-step instructions (enable APIs, add test user, register SHA-1).
 
 When signed in, sync pulls:
 - **Google Calendar** — all readable calendars (365 days ahead)
-- **Google Photos** — up to 100 recent photos
+- **Photos from shared Google Drive folders** — one or more folders (subfolders
+  included); images are downloaded and cached on device, and new photos appear on
+  the next sync
+
+> **Why Drive for photos?** Google restricted the Photos Library API in 2025, so
+> third-party library-wide Photos access no longer works. Family Hub uses a shared
+> **Google Drive folder** instead: share one folder with the family account, paste
+> its link in **Settings → Google Drive photo folder**, and the slideshow stays
+> updated automatically. See [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md).
 
 ## Custom cloud sync (optional)
 

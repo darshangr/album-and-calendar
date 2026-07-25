@@ -17,7 +17,6 @@ class GoogleCalendarSyncService(
     private val authManager: GoogleAuthManager,
 ) {
     suspend fun fetchEvents(
-        zoneId: ZoneId = ZoneId.systemDefault(),
         daysBack: Long = 7,
         daysForward: Long = 365,
     ): List<CalendarEvent> = withContext(Dispatchers.IO) {

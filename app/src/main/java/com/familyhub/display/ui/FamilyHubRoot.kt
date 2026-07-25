@@ -51,6 +51,19 @@ fun FamilyHubRoot(container: AppContainer) {
         mainViewModel.handleGoogleSignInResult(result.data)
     }
 
+    val consentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        mainViewModel.onConsentResult()
+    }
+
+    LaunchedEffect(mainState.pendingConsentIntent) {
+        mainState.pendingConsentIntent?.let { intent ->
+            mainViewModel.clearPendingConsent()
+            consentLauncher.launch(intent)
+        }
+    }
+
     DisposableEffect(mainState.settings.keepScreenOn) {
         val activity = context as? android.app.Activity
         if (mainState.settings.keepScreenOn) {
@@ -105,6 +118,7 @@ fun FamilyHubRoot(container: AppContainer) {
                             viewModel = calendarViewModel,
                             onOpenSettings = { overlay = OverlayScreen.SETTINGS },
                             onSync = mainViewModel::syncNow,
+                            onStartSlideshow = mainViewModel::switchToPhotos,
                             onUserInteraction = mainViewModel::onUserInteraction,
                             syncMessage = mainState.syncMessage,
                             onDismissSyncMessage = mainViewModel::clearSyncMessage,
