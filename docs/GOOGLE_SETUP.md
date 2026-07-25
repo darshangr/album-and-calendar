@@ -8,7 +8,7 @@ Family Hub uses **Sign in with Google** to sync **Google Calendar** and **Google
 2. Create a project (e.g. `family-hub`)
 3. Enable these APIs:
    - **Google Calendar API**
-   - **Photos Library API**
+   - **Google Drive API** (photos come from a shared Drive folder)
 
 ## 2. Configure OAuth consent screen
 
@@ -16,7 +16,7 @@ Family Hub uses **Sign in with Google** to sync **Google Calendar** and **Google
 2. Choose **External** (or Internal for Workspace)
 3. Add scopes:
    - `.../auth/calendar.readonly`
-   - `.../auth/photoslibrary.readonly`
+   - `.../auth/drive.readonly`
 4. Add your Gmail as a **test user** while the app is in testing mode
 
 ## 3. Create the Android OAuth client (the only client the app needs)
@@ -58,11 +58,36 @@ Use **Sync now** anytime to refresh events and photos.
 | Source | What is synced |
 |--------|----------------|
 | Google Calendar | All calendars the account can read (except free/busy-only) |
-| Google Photos | Up to 100 recent photos from the library |
+| Google Drive folder | Images in one shared folder, downloaded and cached on device |
 
 - Google data is stored locally with source `GOOGLE`
 - Local events/photos you add in the app are kept
 - **Sign out** removes synced Google calendar events and photos
+
+## Photos from a shared Google Drive folder
+
+Because Google restricted the Photos Library API in 2025 (see note below), Family
+Hub gets photos from a **shared Google Drive folder** instead. This updates
+automatically: add a photo to the folder and it appears on the next sync.
+
+### One-time setup
+
+1. In **Google Drive**, create a folder, e.g. `Family Hub Photos`.
+2. Put your photos in it (or share an existing folder).
+3. **Share** the folder with the family Gmail you sign into the app with
+   (Viewer access is enough). If the account *owns* the folder, no sharing needed.
+4. Open the folder in Drive and copy its link from the address bar, e.g.
+   `https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz`
+5. In the app: **Settings → Google account → Google Drive photo folder**, paste
+   the link (or just the folder ID), then **Save settings**.
+6. Tap **Sync now**. Images download, cache on the device, and start the slideshow.
+
+Notes:
+
+- The whole family can drop photos into that one shared folder; each sync picks
+  up new images (up to 200) and removes ones deleted from the folder.
+- Photos are cached locally, so the slideshow keeps running offline.
+- Supported: JPG, PNG, WEBP, GIF, HEIC.
 
 ## Google Photos: important 2025 restriction
 
@@ -82,14 +107,11 @@ What this means for Family Hub:
 
 ### Photo options that work today
 
-1. **Local photos (recommended, simplest):** In the slideshow, tap **Add photo →
-   Pick from device**. On the tablet, put family photos in a folder (or let
-   Google Photos "Back up & sync" onto the device) and add them locally.
-2. **Custom cloud sync:** Host image URLs and point the app at your `/sync`
+1. **Shared Google Drive folder (recommended):** Automatic and self-updating —
+   see "Photos from a shared Google Drive folder" above.
+2. **Local photos:** In the slideshow, tap **Add photo → Pick from device**.
+3. **Custom cloud sync:** Host image URLs and point the app at your `/sync`
    endpoint (see `docs/cloud-api-example.json`).
-3. **Google Photos Picker API (future):** A larger feature — the user selects
-   photos in a Google-hosted picker and the app caches them locally. Ask if you
-   want this built.
 
 ### If the 403 says the API is disabled
 

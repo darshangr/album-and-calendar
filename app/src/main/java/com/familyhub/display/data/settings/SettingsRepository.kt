@@ -22,6 +22,7 @@ data class AppSettings(
     val cloudApiKey: String = "",
     val syncIntervalHours: Int = 6,
     val lastSyncEpochMillis: Long = 0L,
+    val driveFolderId: String = "",
 )
 
 class SettingsRepository(private val context: Context) {
@@ -33,6 +34,7 @@ class SettingsRepository(private val context: Context) {
         val cloudApiKey = stringPreferencesKey("cloud_api_key")
         val syncIntervalHours = intPreferencesKey("sync_interval_hours")
         val lastSyncEpochMillis = longPreferencesKey("last_sync_epoch_millis")
+        val driveFolderId = stringPreferencesKey("drive_folder_id")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -44,6 +46,7 @@ class SettingsRepository(private val context: Context) {
             cloudApiKey = prefs[Keys.cloudApiKey].orEmpty(),
             syncIntervalHours = prefs[Keys.syncIntervalHours] ?: 6,
             lastSyncEpochMillis = prefs[Keys.lastSyncEpochMillis] ?: 0L,
+            driveFolderId = prefs[Keys.driveFolderId].orEmpty(),
         )
     }
 
@@ -57,6 +60,7 @@ class SettingsRepository(private val context: Context) {
                 cloudApiKey = prefs[Keys.cloudApiKey].orEmpty(),
                 syncIntervalHours = prefs[Keys.syncIntervalHours] ?: 6,
                 lastSyncEpochMillis = prefs[Keys.lastSyncEpochMillis] ?: 0L,
+                driveFolderId = prefs[Keys.driveFolderId].orEmpty(),
             )
             val updated = transform(current)
             prefs[Keys.calendarIdleTimeoutMinutes] = updated.calendarIdleTimeoutMinutes
@@ -66,6 +70,7 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.cloudApiKey] = updated.cloudApiKey
             prefs[Keys.syncIntervalHours] = updated.syncIntervalHours
             prefs[Keys.lastSyncEpochMillis] = updated.lastSyncEpochMillis
+            prefs[Keys.driveFolderId] = updated.driveFolderId
         }
     }
 }

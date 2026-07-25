@@ -159,7 +159,7 @@ class SyncRepository(
     private val settingsRepository: SettingsRepository,
     private val googleAuthManager: com.familyhub.display.data.google.GoogleAuthManager,
     private val googleCalendarSyncService: com.familyhub.display.data.google.GoogleCalendarSyncService,
-    private val googlePhotosSyncService: com.familyhub.display.data.google.GooglePhotosSyncService,
+    private val googleDriveSyncService: com.familyhub.display.data.google.GoogleDriveSyncService,
 ) {
     suspend fun syncNow(): Result<SyncSummary> {
         return if (googleAuthManager.getSignedInAccount() != null) {
@@ -190,14 +190,19 @@ class SyncRepository(
                 calendarError = e.message ?: "Calendar sync failed"
             }
 
-            try {
-                val photos = googlePhotosSyncService.fetchPhotos(
-                    defaultDurationSeconds = settings.defaultPhotoDurationSeconds,
-                )
-                photoRepository.replaceGooglePhotos(photos)
-                photoCount = photos.size
-            } catch (e: Exception) {
-                photosError = e.message ?: "Photos sync failed"
+            if (settings.driveFolderId.isBlank()) {
+                photosError = "No Google Drive photo folder set. Add one in Settings."
+            } else {
+                try {
+                    val photos = googleDriveSyncService.fetchPhotos(
+                        folderInput = settings.driveFolderId,
+                        defaultDurationSeconds = settings.defaultPhotoDurationSeconds,
+                    )
+                    photoRepository.replaceGooglePhotos(photos)
+                    photoCount = photos.size
+                } catch (e: Exception) {
+                    photosError = e.message ?: "Photos sync failed"
+                }
             }
 
             if (calendarError != null && photosError != null) {

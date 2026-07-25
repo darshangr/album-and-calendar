@@ -82,8 +82,23 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    text = "Calendar and Photos sync from this account.",
+                    text = "Calendar syncs from this account. Photos come from a shared Google Drive folder.",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = draft.driveFolderId,
+                    onValueChange = { draft = draft.copy(driveFolderId = it) },
+                    label = { Text("Google Drive photo folder (link or ID)") },
+                    placeholder = { Text("https://drive.google.com/drive/folders/…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "Share a Drive folder with this account and paste its link here. " +
+                        "Images in that folder are downloaded and cached for the slideshow; " +
+                        "new photos appear on the next sync.",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(onClick = onSignOutGoogle, modifier = Modifier.fillMaxWidth()) {
@@ -91,7 +106,8 @@ fun SettingsScreen(
                 }
             } else {
                 Text(
-                    text = "Sign in with your family Gmail account to sync Google Calendar events and Google Photos.",
+                    text = "Sign in with your family Gmail account to sync Google Calendar events and " +
+                        "photos from a shared Google Drive folder.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

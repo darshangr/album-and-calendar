@@ -18,11 +18,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 object GoogleScopes {
-    const val PHOTOS_READONLY = "https://www.googleapis.com/auth/photoslibrary.readonly"
+    const val DRIVE_READONLY = "https://www.googleapis.com/auth/drive.readonly"
 
     val ALL = listOf(
         CalendarScopes.CALENDAR_READONLY,
-        PHOTOS_READONLY,
+        DRIVE_READONLY,
     )
 }
 
@@ -43,7 +43,7 @@ class GoogleAuthManager(private val context: Context) {
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(Scope(CalendarScopes.CALENDAR_READONLY))
-            .requestScopes(Scope(GoogleScopes.PHOTOS_READONLY))
+            .requestScopes(Scope(GoogleScopes.DRIVE_READONLY))
             .build()
         GoogleSignIn.getClient(context, options)
     }

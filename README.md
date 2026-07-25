@@ -64,12 +64,14 @@ Setup requires a Google Cloud project with an **Android OAuth client** (package 
 
 When signed in, sync pulls:
 - **Google Calendar** — all readable calendars (365 days ahead)
+- **Photos from a shared Google Drive folder** — images are downloaded and cached
+  on device; new photos in the folder appear on the next sync
 
-> **Google Photos note:** Since March 31, 2025, Google restricts third-party
-> library-wide Photos access, so automatic Google Photos sync returns a 403.
-> Calendar sync is unaffected. For photos, use the on-device picker (**Add photo
-> → Pick from device**) or custom cloud sync. See
-> [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md) for details and the Picker API option.
+> **Why Drive for photos?** Google restricted the Photos Library API in 2025, so
+> third-party library-wide Photos access no longer works. Family Hub uses a shared
+> **Google Drive folder** instead: share one folder with the family account, paste
+> its link in **Settings → Google Drive photo folder**, and the slideshow stays
+> updated automatically. See [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md).
 
 ## Custom cloud sync (optional)
 
