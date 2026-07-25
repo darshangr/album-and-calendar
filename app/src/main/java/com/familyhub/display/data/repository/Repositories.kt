@@ -11,6 +11,8 @@ import com.familyhub.display.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -161,8 +163,12 @@ class SyncRepository(
     private val googleCalendarSyncService: com.familyhub.display.data.google.GoogleCalendarSyncService,
     private val googleDriveSyncService: com.familyhub.display.data.google.GoogleDriveSyncService,
 ) {
-    suspend fun syncNow(): Result<SyncSummary> {
-        return if (googleAuthManager.getSignedInAccount() != null) {
+    // Ensures only one sync runs at a time (auto-sync on launch must not race a
+    // manual "Sync now"), which otherwise corrupts the shared photo cache.
+    private val syncMutex = Mutex()
+
+    suspend fun syncNow(): Result<SyncSummary> = syncMutex.withLock {
+        if (googleAuthManager.getSignedInAccount() != null) {
             syncFromGoogle()
         } else {
             syncFromCloud().map { SyncSummary(source = SyncSource.CUSTOM_CLOUD) }

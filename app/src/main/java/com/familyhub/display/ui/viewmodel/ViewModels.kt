@@ -93,6 +93,7 @@ class MainViewModel(
     }
 
     fun syncNow() {
+        if (_uiState.value.isSyncing) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncMessage = null) }
             val result = container.syncRepository.syncNow()

@@ -93,9 +93,15 @@ class GoogleDriveSyncService(
             keepNames += localName
             val localFile = File(cacheDir, localName)
 
-            if (!localFile.exists() || localFile.length() == 0L) {
+            // Re-download if missing, empty, or a previously cached file is corrupt
+            // (e.g. a truncated download) so the cache self-heals.
+            if (!localFile.exists() || localFile.length() == 0L || !isDecodable(localFile)) {
+                localFile.delete()
                 runCatching { downloadAndDownscale(file.id, token, localFile) }
-                    .onFailure { Log.e(TAG, "Failed to download ${file.name}: ${it.message}") }
+                    .onFailure {
+                        Log.e(TAG, "Failed to download ${file.name}: ${it.message}")
+                        localFile.delete()
+                    }
             }
 
             if (localFile.exists() && localFile.length() > 0L) {
@@ -186,15 +192,22 @@ class GoogleDriveSyncService(
             .get()
             .build()
 
-        val tmp = File(dest.parentFile, "${dest.name}.tmp")
+        // Unique temp file per download so concurrent/retried downloads never
+        // clobber each other's partial files.
+        val tmp = File.createTempFile("dl_", ".tmp", dest.parentFile)
         try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     throw GoogleDriveException("Download failed (${response.code})")
                 }
+                val body = response.body ?: throw GoogleDriveException("Empty response for $fileId")
                 tmp.outputStream().use { out ->
-                    response.body?.byteStream()?.copyTo(out)
+                    body.byteStream().copyTo(out)
                 }
+            }
+
+            if (!tmp.exists() || tmp.length() == 0L) {
+                throw GoogleDriveException("Downloaded 0 bytes for $fileId")
             }
 
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -232,6 +245,16 @@ class GoogleDriveSyncService(
             }
         } finally {
             tmp.delete()
+        }
+    }
+
+    private fun isDecodable(file: File): Boolean {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            options.outWidth > 0 && options.outHeight > 0
+        } catch (e: Exception) {
+            false
         }
     }
 
