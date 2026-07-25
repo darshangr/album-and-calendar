@@ -66,6 +66,7 @@ class GoogleDriveSyncService(
             ?: throw GoogleDriveException("Not signed in to Google")
 
         val cacheDir = File(context.filesDir, "drive_photos").apply { mkdirs() }
+        Log.i(TAG, "Drive sync v2 starting: ${folderIds.size} folder(s)")
 
         // Walk the given folders and their subfolders (breadth-first), collecting
         // images until we hit the caps. `visited` prevents cycles / duplicates.
@@ -121,6 +122,7 @@ class GoogleDriveSyncService(
             if (cached.name !in keepNames) cached.delete()
         }
 
+        Log.i(TAG, "Drive sync v2 done: found ${driveFiles.size} image(s), showing ${photos.size}")
         return@withContext photos
     }
 
