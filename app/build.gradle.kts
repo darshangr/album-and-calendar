@@ -19,9 +19,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // Replace with your OAuth 2.0 Web client ID from Google Cloud Console.
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"REPLACE_WITH_WEB_CLIENT_ID\"")
     }
 
     buildTypes {

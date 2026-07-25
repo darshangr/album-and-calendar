@@ -112,9 +112,22 @@ class MainViewModel(
     fun signInWithGoogle() = container.googleAuthManager.getSignInIntent()
 
     fun handleGoogleSignInResult(data: android.content.Intent?) {
-        container.googleAuthManager.handleSignInResult(data)
-        viewModelScope.launch {
+        val result = container.googleAuthManager.handleSignInResult(data)
+        val signedIn = result.getOrNull()?.isSignedIn == true
+        if (signedIn) {
             syncNow()
+        } else {
+            val error = result.exceptionOrNull()
+            val statusCode = (error as? com.google.android.gms.common.api.ApiException)?.statusCode
+            _uiState.update {
+                it.copy(
+                    syncMessage = buildString {
+                        append("Google sign-in failed")
+                        if (statusCode != null) append(" (code $statusCode)")
+                        append(". Check the Android OAuth client (SHA-1 + package), enabled APIs, and test user.")
+                    },
+                )
+            }
         }
     }
 

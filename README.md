@@ -60,7 +60,7 @@ The app supports **Sign in with Google** to pull events and photos directly — 
 2. Use your family Gmail account (see setup guide below)
 3. Tap **Sync now** to refresh
 
-Setup requires a Google Cloud project with OAuth credentials. See **[docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md)** for step-by-step instructions (APIs, SHA-1 fingerprint, Web client ID).
+Setup requires a Google Cloud project with an **Android OAuth client** (package + SHA-1) — no client ID or secret is baked into the app. See **[docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md)** for step-by-step instructions (enable APIs, add test user, register SHA-1).
 
 When signed in, sync pulls:
 - **Google Calendar** — all readable calendars (365 days ahead)

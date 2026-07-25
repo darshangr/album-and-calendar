@@ -19,11 +19,11 @@ Family Hub uses **Sign in with Google** to sync **Google Calendar** and **Google
    - `.../auth/photoslibrary.readonly`
 4. Add your Gmail as a **test user** while the app is in testing mode
 
-## 3. Create OAuth credentials
+## 3. Create the Android OAuth client (the only client the app needs)
 
-You need **two** OAuth client IDs:
-
-### Android client (required)
+The app accesses Calendar and Photos **on-device**, so it does **not** need a Web
+or Desktop client ID baked in. It only needs an **Android OAuth client** that
+matches your app's package name and signing certificate.
 
 1. **APIs & Services → Credentials → Create credentials → OAuth client ID**
 2. Type: **Android**
@@ -35,25 +35,15 @@ You need **two** OAuth client IDs:
 keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
 ```
 
-Copy the **SHA-1** line into the Android OAuth client.
+Copy the **SHA-1** line into the Android OAuth client and save.
 
-### Web client (recommended)
+> If you use a shared debug keystore across machines, register that keystore's
+> SHA-1 instead so every machine authenticates without re-registering.
 
-1. Create another OAuth client ID
-2. Type: **Web application**
-3. Copy the **Client ID** (ends with `.apps.googleusercontent.com`)
+No changes to `app/build.gradle.kts` are required — there is no client ID or
+secret to paste into the app.
 
-## 4. Add the Web client ID to the app
-
-Edit `app/build.gradle.kts`:
-
-```kotlin
-buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"YOUR_WEB_CLIENT_ID.apps.googleusercontent.com\"")
-```
-
-Rebuild the app after changing this value.
-
-## 5. Sign in on the tablet
+## 4. Sign in on the tablet
 
 1. Open **Family Hub → Settings**
 2. Tap **Sign in with Google**
@@ -82,6 +72,20 @@ Google restricts Photos Library API access for new apps. For a personal/family a
 - Submit for verification if you distribute widely
 
 If Photos sync fails but Calendar works, check that **Photos Library API** is enabled and the scope is approved on the consent screen.
+
+## Troubleshooting sign-in
+
+The app shows the failure reason on screen (and status code). Common cases:
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `code 10` (DEVELOPER_ERROR) | Android OAuth client missing or wrong SHA-1/package | Re-check the Android client: package `com.familyhub.display` + the SHA-1 you actually build with (`./gradlew signingReport`) |
+| `BAD_AUTHENTICATION` / "Long live credential not available" | Account not a test user, or APIs not enabled | Add the Gmail as a **test user**; enable Calendar + Photos APIs |
+| `code 12501` | Sign-in cancelled | Try again and pick the account |
+| Emulator can't sign in | Image lacks Google Play | Use a **Google Play** system image and add the account in device Settings |
+
+Note: a **Web** or **Desktop ("installed")** client ID is *not* used by the app.
+Only the **Android** OAuth client matters for on-device access.
 
 ## Family account tip
 
