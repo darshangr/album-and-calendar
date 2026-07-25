@@ -64,14 +64,38 @@ Use **Sync now** anytime to refresh events and photos.
 - Local events/photos you add in the app are kept
 - **Sign out** removes synced Google calendar events and photos
 
-## Google Photos API note
+## Google Photos: important 2025 restriction
 
-Google restricts Photos Library API access for new apps. For a personal/family app:
+**Google changed the Photos Library API on March 31, 2025.** Third-party apps can
+**no longer read a user's whole photo library** via `mediaItems:search` /
+`photoslibrary.readonly`. That call now returns **403**. Google's replacement is
+the **Google Photos Picker API** (the user picks specific photos/albums), or
+access limited to media the app itself created.
 
-- Keep the OAuth app in **Testing** mode and add family accounts as test users, or
-- Submit for verification if you distribute widely
+What this means for Family Hub:
 
-If Photos sync fails but Calendar works, check that **Photos Library API** is enabled and the scope is approved on the consent screen.
+- **Calendar sync is unaffected** and works normally.
+- **Library-wide Photos sync no longer works** — you'll see a 403 with a message
+  explaining the restriction. The app now keeps Calendar working even when Photos
+  fails, and reports the reason on screen (full detail in Logcat, tag
+  `GooglePhotosSync`).
+
+### Photo options that work today
+
+1. **Local photos (recommended, simplest):** In the slideshow, tap **Add photo →
+   Pick from device**. On the tablet, put family photos in a folder (or let
+   Google Photos "Back up & sync" onto the device) and add them locally.
+2. **Custom cloud sync:** Host image URLs and point the app at your `/sync`
+   endpoint (see `docs/cloud-api-example.json`).
+3. **Google Photos Picker API (future):** A larger feature — the user selects
+   photos in a Google-hosted picker and the app caches them locally. Ask if you
+   want this built.
+
+### If the 403 says the API is disabled
+
+If the on-screen/Logcat message mentions *accessNotConfigured* or *has not been
+used in project*, simply enable **Photos Library API** in Google Cloud Console —
+that's a different, easily fixed cause.
 
 ## Troubleshooting sign-in
 

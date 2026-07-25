@@ -161,33 +161,60 @@ class SyncRepository(
     private val googleCalendarSyncService: com.familyhub.display.data.google.GoogleCalendarSyncService,
     private val googlePhotosSyncService: com.familyhub.display.data.google.GooglePhotosSyncService,
 ) {
-    suspend fun syncNow(): Result<SyncSource> {
+    suspend fun syncNow(): Result<SyncSummary> {
         return if (googleAuthManager.getSignedInAccount() != null) {
             syncFromGoogle()
         } else {
-            syncFromCloud().map { SyncSource.CUSTOM_CLOUD }
+            syncFromCloud().map { SyncSummary(source = SyncSource.CUSTOM_CLOUD) }
         }
     }
 
-    suspend fun syncFromGoogle(): Result<SyncSource> {
+    suspend fun syncFromGoogle(): Result<SyncSummary> {
         return runCatching {
             val settings = settingsRepository.settings.first()
             authManagerRequireSignedIn()
 
-            val events = googleCalendarSyncService.fetchEvents()
-            val photos = googlePhotosSyncService.fetchPhotos(
-                defaultDurationSeconds = settings.defaultPhotoDurationSeconds,
-            )
+            var eventCount = 0
+            var photoCount = 0
+            var calendarError: String? = null
+            var photosError: String? = null
 
-            calendarRepository.replaceGoogleEvents(events)
-            photoRepository.replaceGooglePhotos(photos)
+            // Calendar and Photos are synced independently so one failing
+            // (e.g. Google's 2025 Photos Library API restriction) does not
+            // block the other.
+            try {
+                val events = googleCalendarSyncService.fetchEvents()
+                calendarRepository.replaceGoogleEvents(events)
+                eventCount = events.size
+            } catch (e: Exception) {
+                calendarError = e.message ?: "Calendar sync failed"
+            }
 
-            googleAuthManager.getAccessToken()
+            try {
+                val photos = googlePhotosSyncService.fetchPhotos(
+                    defaultDurationSeconds = settings.defaultPhotoDurationSeconds,
+                )
+                photoRepository.replaceGooglePhotos(photos)
+                photoCount = photos.size
+            } catch (e: Exception) {
+                photosError = e.message ?: "Photos sync failed"
+            }
+
+            if (calendarError != null && photosError != null) {
+                throw IllegalStateException("Calendar: $calendarError  •  Photos: $photosError")
+            }
 
             settingsRepository.update { current ->
                 current.copy(lastSyncEpochMillis = System.currentTimeMillis())
             }
-            SyncSource.GOOGLE
+
+            SyncSummary(
+                source = SyncSource.GOOGLE,
+                eventCount = eventCount,
+                photoCount = photoCount,
+                calendarError = calendarError,
+                photosError = photosError,
+            )
         }
     }
 
@@ -220,3 +247,11 @@ enum class SyncSource {
     GOOGLE,
     CUSTOM_CLOUD,
 }
+
+data class SyncSummary(
+    val source: SyncSource,
+    val eventCount: Int = 0,
+    val photoCount: Int = 0,
+    val calendarError: String? = null,
+    val photosError: String? = null,
+)

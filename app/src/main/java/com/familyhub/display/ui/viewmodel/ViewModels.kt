@@ -95,17 +95,25 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncMessage = null) }
             val result = container.syncRepository.syncNow()
-            _uiState.update {
-                it.copy(
-                    isSyncing = false,
-                    syncMessage = when {
-                        result.isSuccess && result.getOrNull() == com.familyhub.display.data.repository.SyncSource.GOOGLE ->
-                            "Google Calendar and Photos synced"
-                        result.isSuccess -> "Sync completed"
-                        else -> result.exceptionOrNull()?.message ?: "Sync failed. Check settings."
-                    },
-                )
-            }
+            val message = result.fold(
+                onSuccess = { summary -> buildSyncMessage(summary) },
+                onFailure = { it.message ?: "Sync failed. Check settings." },
+            )
+            _uiState.update { it.copy(isSyncing = false, syncMessage = message) }
+        }
+    }
+
+    private fun buildSyncMessage(
+        summary: com.familyhub.display.data.repository.SyncSummary,
+    ): String {
+        if (summary.source == com.familyhub.display.data.repository.SyncSource.CUSTOM_CLOUD) {
+            return "Sync completed"
+        }
+        return buildString {
+            append("Synced ${summary.eventCount} events")
+            if (summary.photoCount > 0) append(" and ${summary.photoCount} photos")
+            summary.calendarError?.let { append("  •  Calendar: $it") }
+            summary.photosError?.let { append("  •  Photos: $it") }
         }
     }
 

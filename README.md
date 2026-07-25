@@ -64,7 +64,12 @@ Setup requires a Google Cloud project with an **Android OAuth client** (package 
 
 When signed in, sync pulls:
 - **Google Calendar** — all readable calendars (365 days ahead)
-- **Google Photos** — up to 100 recent photos
+
+> **Google Photos note:** Since March 31, 2025, Google restricts third-party
+> library-wide Photos access, so automatic Google Photos sync returns a 403.
+> Calendar sync is unaffected. For photos, use the on-device picker (**Add photo
+> → Pick from device**) or custom cloud sync. See
+> [docs/GOOGLE_SETUP.md](docs/GOOGLE_SETUP.md) for details and the Picker API option.
 
 ## Custom cloud sync (optional)
 

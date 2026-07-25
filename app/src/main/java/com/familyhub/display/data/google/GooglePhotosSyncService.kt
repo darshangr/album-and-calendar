@@ -1,5 +1,6 @@
 package com.familyhub.display.data.google
 
+import android.util.Log
 import com.familyhub.display.data.model.ContentSource
 import com.familyhub.display.data.model.PhotoItem
 import com.squareup.moshi.Json
@@ -13,6 +14,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+
+class GooglePhotosException(message: String) : Exception(message)
 
 @JsonClass(generateAdapter = true)
 data class PhotosSearchRequest(
@@ -80,13 +83,14 @@ class GooglePhotosSyncService(
                 .build()
 
             val response = httpClient.newCall(request).execute()
+            val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Google Photos sync failed (${response.code})")
+                Log.e(TAG, "Photos API ${response.code}: $body")
+                throw GooglePhotosException(describeError(response.code, body))
             }
 
-            val body = response.body?.string().orEmpty()
             val parsed = searchResponseAdapter.fromJson(body)
-                ?: throw IllegalStateException("Invalid Google Photos response")
+                ?: throw GooglePhotosException("Invalid Google Photos response")
 
             parsed.mediaItems.orEmpty().forEach { item ->
                 if (photos.size >= maxPhotos) return@forEach
@@ -105,5 +109,25 @@ class GooglePhotosSyncService(
         }
 
         return@withContext photos
+    }
+
+    private fun describeError(code: Int, body: String): String {
+        val lower = body.lowercase()
+        return when {
+            code == 403 && ("accessnotconfigured" in lower || "has not been used" in lower || "service_disabled" in lower) ->
+                "Photos Library API is not enabled for this project. Enable it in Google Cloud Console."
+            code == 403 && ("permission" in lower || "insufficient" in lower || "scope" in lower || "consent" in lower) ->
+                "Google restricted the Photos Library API (403). Broad library access was removed in 2025; " +
+                    "the app must use the Google Photos Picker instead. Calendar still works."
+            code == 403 ->
+                "Google Photos access denied (403). Library-wide access is restricted by Google since 2025. " +
+                    "See docs/GOOGLE_SETUP.md."
+            code == 401 -> "Google Photos authorization expired (401). Sign out and sign in again."
+            else -> "Google Photos sync failed ($code)."
+        }
+    }
+
+    companion object {
+        private const val TAG = "GooglePhotosSync"
     }
 }
