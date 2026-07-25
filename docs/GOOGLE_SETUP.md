@@ -78,14 +78,23 @@ automatically: add a photo to the folder and it appears on the next sync.
    (Viewer access is enough). If the account *owns* the folder, no sharing needed.
 4. Open the folder in Drive and copy its link from the address bar, e.g.
    `https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz`
-5. In the app: **Settings → Google account → Google Drive photo folder**, paste
+5. In the app: **Settings → Google account → Google Drive photo folders**, paste
    the link (or just the folder ID), then **Save settings**.
 6. Tap **Sync now**. Images download, cache on the device, and start the slideshow.
 
+### Multiple folders
+
+If your photos live in several folders, you have two options:
+
+- **List several folders:** paste each folder link on its **own line** in the
+  Drive photo folders box. Share each one with the account.
+- **Use a parent folder:** point at a single folder that *contains* subfolders —
+  the app walks subfolders automatically and pulls images from all of them.
+
 Notes:
 
-- The whole family can drop photos into that one shared folder; each sync picks
-  up new images (up to 200) and removes ones deleted from the folder.
+- The whole family can drop photos into these folders; each sync picks up new
+  images (up to ~300 total across all folders) and removes ones deleted from Drive.
 - Photos are cached locally, so the slideshow keeps running offline.
 - Supported: JPG, PNG, WEBP, GIF, HEIC.
 

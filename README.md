@@ -64,8 +64,9 @@ Setup requires a Google Cloud project with an **Android OAuth client** (package 
 
 When signed in, sync pulls:
 - **Google Calendar** — all readable calendars (365 days ahead)
-- **Photos from a shared Google Drive folder** — images are downloaded and cached
-  on device; new photos in the folder appear on the next sync
+- **Photos from shared Google Drive folders** — one or more folders (subfolders
+  included); images are downloaded and cached on device, and new photos appear on
+  the next sync
 
 > **Why Drive for photos?** Google restricted the Photos Library API in 2025, so
 > third-party library-wide Photos access no longer works. Family Hub uses a shared

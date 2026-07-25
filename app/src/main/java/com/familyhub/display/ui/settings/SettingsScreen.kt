@@ -82,22 +82,24 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
-                    text = "Calendar syncs from this account. Photos come from a shared Google Drive folder.",
+                    text = "Calendar syncs from this account. Photos come from shared Google Drive folders.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = draft.driveFolderId,
                     onValueChange = { draft = draft.copy(driveFolderId = it) },
-                    label = { Text("Google Drive photo folder (link or ID)") },
+                    label = { Text("Google Drive photo folders (one link/ID per line)") },
                     placeholder = { Text("https://drive.google.com/drive/folders/…") },
-                    singleLine = true,
+                    minLines = 2,
+                    maxLines = 5,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    text = "Share a Drive folder with this account and paste its link here. " +
-                        "Images in that folder are downloaded and cached for the slideshow; " +
-                        "new photos appear on the next sync.",
+                    text = "Paste one or more Drive folder links (one per line). Subfolders are " +
+                        "included automatically, so you can also point at a single parent folder. " +
+                        "Share each folder with this account. Images are downloaded and cached for " +
+                        "the slideshow; new photos appear on the next sync.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -53,20 +53,38 @@ class GoogleDriveSyncService(
     suspend fun fetchPhotos(
         folderInput: String,
         defaultDurationSeconds: Int = 10,
-        maxPhotos: Int = 200,
+        maxPhotos: Int = 300,
+        maxFolders: Int = 200,
     ): List<PhotoItem> = withContext(Dispatchers.IO) {
-        val folderId = parseFolderId(folderInput)
-            ?: throw GoogleDriveException("Enter a valid Google Drive folder link or ID")
+        val folderIds = parseFolderIds(folderInput)
+        if (folderIds.isEmpty()) {
+            throw GoogleDriveException("Enter at least one Google Drive folder link or ID")
+        }
         val token = authManager.getAccessToken()
             ?: throw GoogleDriveException("Not signed in to Google")
 
         val cacheDir = File(context.filesDir, "drive_photos").apply { mkdirs() }
-        val driveFiles = listImageFiles(folderId, token, maxPhotos)
+
+        // Walk the given folders and their subfolders (breadth-first), collecting
+        // images until we hit the caps. `visited` prevents cycles / duplicates.
+        val driveFiles = mutableListOf<DriveFile>()
+        val seenFileIds = mutableSetOf<String>()
+        val visitedFolders = mutableSetOf<String>()
+        val queue = ArrayDeque(folderIds)
+
+        while (queue.isNotEmpty() && driveFiles.size < maxPhotos && visitedFolders.size < maxFolders) {
+            val folderId = queue.removeFirst()
+            if (!visitedFolders.add(folderId)) continue
+
+            val (images, subfolders) = listChildren(folderId, token, maxPhotos - driveFiles.size)
+            images.forEach { if (seenFileIds.add(it.id)) driveFiles += it }
+            subfolders.forEach { if (it !in visitedFolders) queue.addLast(it) }
+        }
 
         val keepNames = mutableSetOf<String>()
         val photos = mutableListOf<PhotoItem>()
 
-        driveFiles.forEachIndexed { index, file ->
+        driveFiles.take(maxPhotos).forEachIndexed { index, file ->
             val ext = extensionFor(file.mimeType, file.name)
             val localName = "${file.id}.$ext"
             keepNames += localName
@@ -97,19 +115,30 @@ class GoogleDriveSyncService(
         return@withContext photos
     }
 
-    private fun listImageFiles(folderId: String, token: String, maxPhotos: Int): List<DriveFile> {
-        val result = mutableListOf<DriveFile>()
+    /**
+     * Lists the direct children of a folder, returning image files and the ids of
+     * any subfolders (so the caller can recurse). Includes items from shared
+     * drives.
+     */
+    private fun listChildren(
+        folderId: String,
+        token: String,
+        remaining: Int,
+    ): Pair<List<DriveFile>, List<String>> {
+        val images = mutableListOf<DriveFile>()
+        val subfolders = mutableListOf<String>()
         var pageToken: String? = null
 
         do {
             val urlBuilder = "https://www.googleapis.com/drive/v3/files".toHttpUrl().newBuilder()
                 .addQueryParameter(
                     "q",
-                    "'$folderId' in parents and mimeType contains 'image/' and trashed = false",
+                    "'$folderId' in parents and trashed = false and " +
+                        "(mimeType contains 'image/' or mimeType = '$FOLDER_MIME')",
                 )
                 .addQueryParameter("fields", "files(id,name,mimeType,modifiedTime),nextPageToken")
                 .addQueryParameter("pageSize", "100")
-                .addQueryParameter("orderBy", "name")
+                .addQueryParameter("orderBy", "folder,name")
                 .addQueryParameter("supportsAllDrives", "true")
                 .addQueryParameter("includeItemsFromAllDrives", "true")
             if (pageToken != null) urlBuilder.addQueryParameter("pageToken", pageToken)
@@ -127,12 +156,18 @@ class GoogleDriveSyncService(
                     throw GoogleDriveException(describeError(response.code, body))
                 }
                 val parsed = listAdapter.fromJson(body)
-                parsed?.files?.let { result += it }
+                parsed?.files?.forEach { file ->
+                    if (file.mimeType == FOLDER_MIME) {
+                        subfolders += file.id
+                    } else {
+                        images += file
+                    }
+                }
                 pageToken = parsed?.nextPageToken
             }
-        } while (pageToken != null && result.size < maxPhotos)
+        } while (pageToken != null && images.size < remaining)
 
-        return result.take(maxPhotos)
+        return images.take(remaining) to subfolders
     }
 
     private fun downloadFile(fileId: String, token: String, dest: File) {
@@ -180,6 +215,7 @@ class GoogleDriveSyncService(
 
     companion object {
         private const val TAG = "GoogleDriveSync"
+        private const val FOLDER_MIME = "application/vnd.google-apps.folder"
 
         fun parseFolderId(input: String): String? {
             val trimmed = input.trim()
@@ -188,6 +224,15 @@ class GoogleDriveSyncService(
             Regex("[?&]id=([a-zA-Z0-9_-]+)").find(trimmed)?.let { return it.groupValues[1] }
             if (Regex("^[a-zA-Z0-9_-]+$").matches(trimmed)) return trimmed
             return null
+        }
+
+        /** Parses multiple folder links/IDs separated by newlines, commas, or spaces. */
+        fun parseFolderIds(input: String): List<String> {
+            return input.split('\n', ',', ' ', '\t')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .mapNotNull { parseFolderId(it) }
+                .distinct()
         }
     }
 }
