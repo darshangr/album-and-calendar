@@ -94,7 +94,10 @@ If your photos live in several folders, you have two options:
 Notes:
 
 - The whole family can drop photos into these folders; each sync picks up new
-  images (up to ~300 total across all folders) and removes ones deleted from Drive.
+  images (up to ~2000 total across all folders) and removes ones deleted from Drive.
+- Images are **downscaled to ~2560px and re-encoded as JPEG** when cached, so the
+  device stays small and the slideshow won't run out of memory even with large
+  libraries. Originals in Drive are untouched.
 - Photos are cached locally, so the slideshow keeps running offline.
 - Supported: JPG, PNG, WEBP, GIF, HEIC.
 

@@ -1,6 +1,8 @@
 package com.familyhub.display.data.google
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Log
 import com.familyhub.display.data.model.ContentSource
@@ -53,8 +55,8 @@ class GoogleDriveSyncService(
     suspend fun fetchPhotos(
         folderInput: String,
         defaultDurationSeconds: Int = 10,
-        maxPhotos: Int = 300,
-        maxFolders: Int = 200,
+        maxPhotos: Int = 2000,
+        maxFolders: Int = 500,
     ): List<PhotoItem> = withContext(Dispatchers.IO) {
         val folderIds = parseFolderIds(folderInput)
         if (folderIds.isEmpty()) {
@@ -85,13 +87,14 @@ class GoogleDriveSyncService(
         val photos = mutableListOf<PhotoItem>()
 
         driveFiles.take(maxPhotos).forEachIndexed { index, file ->
-            val ext = extensionFor(file.mimeType, file.name)
-            val localName = "${file.id}.$ext"
+            // Images are re-encoded to downscaled JPEG on download, so use a
+            // uniform .jpg cache name regardless of the source format.
+            val localName = "${file.id}.jpg"
             keepNames += localName
             val localFile = File(cacheDir, localName)
 
             if (!localFile.exists() || localFile.length() == 0L) {
-                runCatching { downloadFile(file.id, token, localFile) }
+                runCatching { downloadAndDownscale(file.id, token, localFile) }
                     .onFailure { Log.e(TAG, "Failed to download ${file.name}: ${it.message}") }
             }
 
@@ -170,32 +173,65 @@ class GoogleDriveSyncService(
         return images.take(remaining) to subfolders
     }
 
-    private fun downloadFile(fileId: String, token: String, dest: File) {
+    /**
+     * Downloads a Drive image to a temp file, then decodes it **downsampled**
+     * (never loading the full-resolution bitmap into memory) and re-encodes it as
+     * a screen-sized JPEG. This bounds both device storage and the bitmap memory
+     * the slideshow decodes later, avoiding OOM on large photo libraries.
+     */
+    private fun downloadAndDownscale(fileId: String, token: String, dest: File) {
         val request = Request.Builder()
             .url("https://www.googleapis.com/drive/v3/files/$fileId?alt=media&supportsAllDrives=true")
             .addHeader("Authorization", "Bearer $token")
             .get()
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw GoogleDriveException("Download failed (${response.code})")
+        val tmp = File(dest.parentFile, "${dest.name}.tmp")
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw GoogleDriveException("Download failed (${response.code})")
+                }
+                tmp.outputStream().use { out ->
+                    response.body?.byteStream()?.copyTo(out)
+                }
             }
-            dest.outputStream().use { out ->
-                response.body?.byteStream()?.copyTo(out)
-            }
-        }
-    }
 
-    private fun extensionFor(mimeType: String?, name: String): String {
-        val fromName = name.substringAfterLast('.', "").lowercase()
-        if (fromName.length in 1..5) return fromName
-        return when (mimeType) {
-            "image/png" -> "png"
-            "image/webp" -> "webp"
-            "image/gif" -> "gif"
-            "image/heic" -> "heic"
-            else -> "jpg"
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(tmp.absolutePath, bounds)
+            val srcW = bounds.outWidth
+            val srcH = bounds.outHeight
+
+            if (srcW <= 0 || srcH <= 0) {
+                // Not a decodable image (or unsupported); keep the original bytes.
+                tmp.copyTo(dest, overwrite = true)
+                return
+            }
+
+            var sample = 1
+            while (srcW / (sample * 2) >= MAX_IMAGE_DIMEN || srcH / (sample * 2) >= MAX_IMAGE_DIMEN) {
+                sample *= 2
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+            val bitmap = BitmapFactory.decodeFile(tmp.absolutePath, decodeOptions)
+            if (bitmap == null) {
+                tmp.copyTo(dest, overwrite = true)
+                return
+            }
+
+            try {
+                dest.outputStream().use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                }
+            } finally {
+                bitmap.recycle()
+            }
+        } finally {
+            tmp.delete()
         }
     }
 
@@ -216,6 +252,8 @@ class GoogleDriveSyncService(
     companion object {
         private const val TAG = "GoogleDriveSync"
         private const val FOLDER_MIME = "application/vnd.google-apps.folder"
+        private const val MAX_IMAGE_DIMEN = 2560
+        private const val JPEG_QUALITY = 82
 
         fun parseFolderId(input: String): String? {
             val trimmed = input.trim()
