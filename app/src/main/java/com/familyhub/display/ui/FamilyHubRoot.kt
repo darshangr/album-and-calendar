@@ -105,6 +105,7 @@ fun FamilyHubRoot(container: AppContainer) {
                             viewModel = calendarViewModel,
                             onOpenSettings = { overlay = OverlayScreen.SETTINGS },
                             onSync = mainViewModel::syncNow,
+                            onStartSlideshow = mainViewModel::switchToPhotos,
                             onUserInteraction = mainViewModel::onUserInteraction,
                             syncMessage = mainState.syncMessage,
                             onDismissSyncMessage = mainViewModel::clearSyncMessage,

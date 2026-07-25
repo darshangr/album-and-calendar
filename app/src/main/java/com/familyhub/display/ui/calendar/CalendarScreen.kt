@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Slideshow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,6 +78,7 @@ fun CalendarScreen(
     viewModel: CalendarViewModel,
     onOpenSettings: () -> Unit,
     onSync: () -> Unit,
+    onStartSlideshow: () -> Unit,
     onUserInteraction: () -> Unit,
     syncMessage: String?,
     onDismissSyncMessage: () -> Unit,
@@ -97,6 +99,12 @@ fun CalendarScreen(
             TopAppBar(
                 title = { Text("Family Calendar") },
                 actions = {
+                    IconButton(onClick = {
+                        onUserInteraction()
+                        onStartSlideshow()
+                    }) {
+                        Icon(Icons.Default.Slideshow, contentDescription = "Start photo slideshow")
+                    }
                     IconButton(onClick = {
                         onUserInteraction()
                         onSync()
