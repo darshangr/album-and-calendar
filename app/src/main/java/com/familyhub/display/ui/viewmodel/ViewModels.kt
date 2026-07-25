@@ -32,6 +32,7 @@ data class MainUiState(
     val isSyncing: Boolean = false,
     val googleAccount: com.familyhub.display.data.google.GoogleAccountState =
         com.familyhub.display.data.google.GoogleAccountState(),
+    val pendingConsentIntent: android.content.Intent? = null,
 )
 
 class MainViewModel(
@@ -95,12 +96,41 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncMessage = null) }
             val result = container.syncRepository.syncNow()
-            val message = result.fold(
-                onSuccess = { summary -> buildSyncMessage(summary) },
-                onFailure = { it.message ?: "Sync failed. Check settings." },
+            result.fold(
+                onSuccess = { summary ->
+                    _uiState.update {
+                        it.copy(isSyncing = false, syncMessage = buildSyncMessage(summary))
+                    }
+                },
+                onFailure = { error ->
+                    if (error is com.familyhub.display.data.google.GoogleConsentRequiredException) {
+                        _uiState.update {
+                            it.copy(
+                                isSyncing = false,
+                                pendingConsentIntent = error.consentIntent,
+                                syncMessage = "Approve Google Drive access to finish syncing photos.",
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isSyncing = false,
+                                syncMessage = error.message ?: "Sync failed. Check settings.",
+                            )
+                        }
+                    }
+                },
             )
-            _uiState.update { it.copy(isSyncing = false, syncMessage = message) }
         }
+    }
+
+    fun clearPendingConsent() {
+        _uiState.update { it.copy(pendingConsentIntent = null) }
+    }
+
+    fun onConsentResult() {
+        container.googleAuthManager.refreshAccountState()
+        syncNow()
     }
 
     private fun buildSyncMessage(

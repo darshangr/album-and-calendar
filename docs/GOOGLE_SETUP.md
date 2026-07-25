@@ -128,6 +128,7 @@ The app shows the failure reason on screen (and status code). Common cases:
 | `code 10` (DEVELOPER_ERROR) | Android OAuth client missing or wrong SHA-1/package | Re-check the Android client: package `com.familyhub.display` + the SHA-1 you actually build with (`./gradlew signingReport`) |
 | `BAD_AUTHENTICATION` / "Long live credential not available" | Account not a test user, or APIs not enabled | Add the Gmail as a **test user**; enable Calendar + Photos APIs |
 | `code 12501` | Sign-in cancelled | Try again and pick the account |
+| `NEED_REMOTE_CONSENT` (Drive) | Drive scope not yet approved for the account | The app now pops Google's approval screen automatically — tap **Allow**, then it re-syncs. Make sure `drive.readonly` is on the OAuth consent screen and your Gmail is a test user. |
 | Emulator can't sign in | Image lacks Google Play | Use a **Google Play** system image and add the account in device Settings |
 
 Note: a **Web** or **Desktop ("installed")** client ID is *not* used by the app.

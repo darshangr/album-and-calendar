@@ -51,6 +51,19 @@ fun FamilyHubRoot(container: AppContainer) {
         mainViewModel.handleGoogleSignInResult(result.data)
     }
 
+    val consentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) {
+        mainViewModel.onConsentResult()
+    }
+
+    LaunchedEffect(mainState.pendingConsentIntent) {
+        mainState.pendingConsentIntent?.let { intent ->
+            mainViewModel.clearPendingConsent()
+            consentLauncher.launch(intent)
+        }
+    }
+
     DisposableEffect(mainState.settings.keepScreenOn) {
         val activity = context as? android.app.Activity
         if (mainState.settings.keepScreenOn) {

@@ -2,6 +2,7 @@ package com.familyhub.display.data.google
 
 import android.content.Context
 import android.content.Intent
+import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -31,6 +32,14 @@ data class GoogleAccountState(
     val email: String? = null,
     val displayName: String? = null,
 )
+
+/**
+ * Thrown when Google requires the user to approve an additional scope
+ * (e.g. Drive) that wasn't granted at sign-in. The [consentIntent] must be
+ * launched from an Activity to show Google's approval screen.
+ */
+class GoogleConsentRequiredException(val consentIntent: Intent) :
+    Exception("Additional Google permission required")
 
 class GoogleAuthManager(private val context: Context) {
     private val _accountState = MutableStateFlow(readAccountState())
@@ -65,10 +74,17 @@ class GoogleAuthManager(private val context: Context) {
         val cached = getCachedAccessToken()
         if (cached != null) return@withContext cached
 
-        val token = runCatching { getCredential()?.token }.getOrNull()
-        cachedAccessToken = token
-        cachedAccessTokenEpochMillis = System.currentTimeMillis()
-        token
+        val credential = getCredential() ?: return@withContext null
+        try {
+            val token = credential.token
+            cachedAccessToken = token
+            cachedAccessTokenEpochMillis = System.currentTimeMillis()
+            token
+        } catch (e: UserRecoverableAuthException) {
+            // Google needs the user to approve a scope (e.g. Drive) interactively.
+            e.intent?.let { throw GoogleConsentRequiredException(it) }
+            throw e
+        }
     }
 
     private fun clearTokenCache() {

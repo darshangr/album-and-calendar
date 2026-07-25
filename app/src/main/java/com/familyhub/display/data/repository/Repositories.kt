@@ -186,6 +186,8 @@ class SyncRepository(
                 val events = googleCalendarSyncService.fetchEvents()
                 calendarRepository.replaceGoogleEvents(events)
                 eventCount = events.size
+            } catch (e: com.familyhub.display.data.google.GoogleConsentRequiredException) {
+                throw e
             } catch (e: Exception) {
                 calendarError = e.message ?: "Calendar sync failed"
             }
@@ -200,6 +202,8 @@ class SyncRepository(
                     )
                     photoRepository.replaceGooglePhotos(photos)
                     photoCount = photos.size
+                } catch (e: com.familyhub.display.data.google.GoogleConsentRequiredException) {
+                    throw e
                 } catch (e: Exception) {
                     photosError = e.message ?: "Photos sync failed"
                 }
