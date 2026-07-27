@@ -45,6 +45,10 @@ class MainViewModel(
 
     private var lastInteractionEpochMillis = System.currentTimeMillis()
 
+    // When true (a dialog/overlay is open, e.g. editing an event), the idle
+    // timer must not switch to the photo slideshow and discard the user's work.
+    private var modalOpen = false
+
     init {
         viewModelScope.launch {
             container.seedSampleDataIfEmpty()
@@ -111,9 +115,14 @@ class MainViewModel(
         lastInteractionEpochMillis = System.currentTimeMillis()
     }
 
+    fun setModalOpen(open: Boolean) {
+        modalOpen = open
+        if (open) lastInteractionEpochMillis = System.currentTimeMillis()
+    }
+
     fun checkIdleTimeout(nowMillis: Long = System.currentTimeMillis()) {
         val timeoutMinutes = _uiState.value.settings.calendarIdleTimeoutMinutes
-        if (_uiState.value.mode != DisplayMode.CALENDAR || timeoutMinutes <= 0) {
+        if (_uiState.value.mode != DisplayMode.CALENDAR || timeoutMinutes <= 0 || modalOpen) {
             return
         }
 

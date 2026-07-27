@@ -53,8 +53,14 @@ fun FamilyHubRoot(container: AppContainer) {
 
     val mainState by mainViewModel.uiState.collectAsStateWithLifecycle()
     var overlay by remember { mutableStateOf(OverlayScreen.NONE) }
+    var calendarModalOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val view = LocalView.current
+
+    // Suppress the idle->photos timer while Settings or any calendar dialog is open.
+    LaunchedEffect(overlay, calendarModalOpen) {
+        mainViewModel.setModalOpen(overlay == OverlayScreen.SETTINGS || calendarModalOpen)
+    }
 
     // Night sleep state: recompute the current time on a ticker; a tap during
     // sleep temporarily wakes the screen until `sleepOverrideUntil`.
@@ -193,6 +199,7 @@ fun FamilyHubRoot(container: AppContainer) {
                             onSync = mainViewModel::syncNow,
                             onStartSlideshow = mainViewModel::switchToPhotos,
                             onUserInteraction = mainViewModel::onUserInteraction,
+                            onModalChanged = { calendarModalOpen = it },
                             syncMessage = mainState.syncMessage,
                             onDismissSyncMessage = mainViewModel::clearSyncMessage,
                             isSyncing = mainState.isSyncing,

@@ -65,7 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphicsLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -115,6 +115,7 @@ fun CalendarScreen(
     onSync: () -> Unit,
     onStartSlideshow: () -> Unit,
     onUserInteraction: () -> Unit,
+    onModalChanged: (Boolean) -> Unit,
     syncMessage: String?,
     onDismissSyncMessage: () -> Unit,
     isSyncing: Boolean,
@@ -125,6 +126,14 @@ fun CalendarScreen(
     var moveScopePrompt by remember { mutableStateOf<Pair<CalendarEvent, LocalDate>?>(null) }
     var saveScopePrompt by remember { mutableStateOf<CalendarEvent?>(null) }
     var deleteScopePrompt by remember { mutableStateOf<CalendarEvent?>(null) }
+
+    // Tell the host when a dialog is open so the idle timer won't switch to
+    // photos mid-edit and discard what the user is entering.
+    val modalOpen = uiState.showAddDialog ||
+        moveScopePrompt != null ||
+        saveScopePrompt != null ||
+        deleteScopePrompt != null
+    LaunchedEffect(modalOpen) { onModalChanged(modalOpen) }
 
     LaunchedEffect(syncMessage) {
         syncMessage?.let {
