@@ -50,6 +50,7 @@ fun SettingsScreen(
     onSwitchToPhotosNow: () -> Unit,
     onSignInWithGoogle: () -> Unit,
     onSignOutGoogle: () -> Unit,
+    onLockToApp: () -> Unit,
 ) {
     var draft by remember(settings) { mutableStateOf(settings) }
 
@@ -144,6 +145,63 @@ fun SettingsScreen(
                 Switch(
                     checked = draft.keepScreenOn,
                     onCheckedChange = { draft = draft.copy(keepScreenOn = it) },
+                )
+            }
+
+            SectionTitle("Fullscreen (kiosk)")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Hide status & navigation bars")
+                Switch(
+                    checked = draft.immersiveFullscreen,
+                    onCheckedChange = { draft = draft.copy(immersiveFullscreen = it) },
+                )
+            }
+            Text(
+                text = "Hides the top notification bar and bottom buttons for a clean wall display. " +
+                    "To fully lock the tablet to this app, use \"Lock to this app\" below (Android " +
+                    "screen pinning — you can exit by holding Back + Recents).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onLockToApp, modifier = Modifier.fillMaxWidth()) {
+                Text("Lock to this app (screen pinning)")
+            }
+
+            SectionTitle("Night sleep")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sleep the screen at night")
+                Switch(
+                    checked = draft.nightSleepEnabled,
+                    onCheckedChange = { draft = draft.copy(nightSleepEnabled = it) },
+                )
+            }
+            if (draft.nightSleepEnabled) {
+                Text("Sleep at: %02d:00".format(draft.sleepStartHour % 24))
+                Slider(
+                    value = draft.sleepStartHour.toFloat(),
+                    onValueChange = { draft = draft.copy(sleepStartHour = it.toInt()) },
+                    valueRange = 0f..23f,
+                    steps = 22,
+                )
+                Text("Wake at: %02d:00".format(draft.wakeHour % 24))
+                Slider(
+                    value = draft.wakeHour.toFloat(),
+                    onValueChange = { draft = draft.copy(wakeHour = it.toInt()) },
+                    valueRange = 0f..23f,
+                    steps = 22,
+                )
+                Text(
+                    text = "The screen goes dark during these hours. Tap it to wake for 5 minutes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
