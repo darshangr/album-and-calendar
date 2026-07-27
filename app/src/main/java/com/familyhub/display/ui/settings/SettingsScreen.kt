@@ -1,5 +1,7 @@
 package com.familyhub.display.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,10 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -31,9 +36,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.familyhub.display.data.google.GoogleAccountState
+import com.familyhub.display.data.model.FamilyMember
 import com.familyhub.display.data.settings.AppSettings
 import java.time.Instant
 import java.time.ZoneId
@@ -44,6 +52,7 @@ import java.time.format.DateTimeFormatter
 fun SettingsScreen(
     settings: AppSettings,
     googleAccount: GoogleAccountState,
+    members: List<FamilyMember>,
     onBack: () -> Unit,
     onSave: (AppSettings) -> Unit,
     onSync: () -> Unit,
@@ -51,8 +60,12 @@ fun SettingsScreen(
     onSignInWithGoogle: () -> Unit,
     onSignOutGoogle: () -> Unit,
     onLockToApp: () -> Unit,
+    onAddMember: (String) -> Unit,
+    onDeleteMember: (Long) -> Unit,
+    onRecolorMember: (FamilyMember) -> Unit,
 ) {
     var draft by remember(settings) { mutableStateOf(settings) }
+    var newMemberName by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -119,7 +132,75 @@ fun SettingsScreen(
                 }
             }
 
+            SectionTitle("Family members")
+            Text(
+                text = "Add each family member. When adding an event you can assign it to a " +
+                    "member (color-coded) or leave it as a general/family event.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            members.forEach { member ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(member.colorArgb))
+                            .clickable { onRecolorMember(member) },
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(member.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "Recolor",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clickable { onRecolorMember(member) }
+                            .padding(horizontal = 8.dp),
+                    )
+                    IconButton(onClick = { onDeleteMember(member.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Remove ${member.name}")
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = newMemberName,
+                    onValueChange = { newMemberName = it },
+                    label = { Text("Add family member") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        onAddMember(newMemberName)
+                        newMemberName = ""
+                    },
+                    enabled = newMemberName.isNotBlank(),
+                ) {
+                    Text("Add")
+                }
+            }
+
             SectionTitle("Display behavior")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Default to weekly view (off = monthly)")
+                Switch(
+                    checked = draft.weeklyViewDefault,
+                    onCheckedChange = { draft = draft.copy(weeklyViewDefault = it) },
+                )
+            }
             Text("Switch to photos after inactivity: ${draft.calendarIdleTimeoutMinutes} min")
             Slider(
                 value = draft.calendarIdleTimeoutMinutes.toFloat(),

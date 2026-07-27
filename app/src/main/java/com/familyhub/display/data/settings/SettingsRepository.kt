@@ -27,6 +27,7 @@ data class AppSettings(
     val nightSleepEnabled: Boolean = true,
     val sleepStartHour: Int = 21,
     val wakeHour: Int = 7,
+    val weeklyViewDefault: Boolean = true,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -43,6 +44,7 @@ class SettingsRepository(private val context: Context) {
         val nightSleepEnabled = booleanPreferencesKey("night_sleep_enabled")
         val sleepStartHour = intPreferencesKey("sleep_start_hour")
         val wakeHour = intPreferencesKey("wake_hour")
+        val weeklyViewDefault = booleanPreferencesKey("weekly_view_default")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -59,6 +61,7 @@ class SettingsRepository(private val context: Context) {
             nightSleepEnabled = prefs[Keys.nightSleepEnabled] ?: true,
             sleepStartHour = prefs[Keys.sleepStartHour] ?: 21,
             wakeHour = prefs[Keys.wakeHour] ?: 7,
+            weeklyViewDefault = prefs[Keys.weeklyViewDefault] ?: true,
         )
     }
 
@@ -77,6 +80,7 @@ class SettingsRepository(private val context: Context) {
                 nightSleepEnabled = prefs[Keys.nightSleepEnabled] ?: true,
                 sleepStartHour = prefs[Keys.sleepStartHour] ?: 21,
                 wakeHour = prefs[Keys.wakeHour] ?: 7,
+                weeklyViewDefault = prefs[Keys.weeklyViewDefault] ?: true,
             )
             val updated = transform(current)
             prefs[Keys.calendarIdleTimeoutMinutes] = updated.calendarIdleTimeoutMinutes
@@ -91,6 +95,7 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.nightSleepEnabled] = updated.nightSleepEnabled
             prefs[Keys.sleepStartHour] = updated.sleepStartHour
             prefs[Keys.wakeHour] = updated.wakeHour
+            prefs[Keys.weeklyViewDefault] = updated.weeklyViewDefault
         }
     }
 }

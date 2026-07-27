@@ -25,6 +25,20 @@ fun formatMonthYear(month: LocalDate): String {
     return month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + month.year
 }
 
+fun formatWeekRange(weekStart: LocalDate): String {
+    val weekEnd = weekStart.plusDays(6)
+    val startFmt = DateTimeFormatter.ofPattern("MMM d")
+    return if (weekStart.month == weekEnd.month) {
+        "${weekStart.format(startFmt)} – ${weekEnd.dayOfMonth}, ${weekEnd.year}"
+    } else {
+        "${weekStart.format(startFmt)} – ${weekEnd.format(startFmt)}, ${weekEnd.year}"
+    }
+}
+
+fun eventColorArgb(memberId: Long?, memberColors: Map<Long, Int>): Int {
+    return memberId?.let { memberColors[it] } ?: com.familyhub.display.ui.theme.GeneralEventColor
+}
+
 fun formatDayLabel(day: LocalDate): String {
     val formatter = DateTimeFormatter.ofPattern("EEEE, MMM d")
     return day.format(formatter)

@@ -32,6 +32,15 @@ data class CalendarEvent(
     val source: ContentSource = ContentSource.LOCAL,
     val remoteId: String? = null,
     val colorArgb: Int? = null,
+    // Null = general / family-wide event.
+    val memberId: Long? = null,
+)
+
+data class FamilyMember(
+    val id: Long = 0,
+    val name: String,
+    val colorArgb: Int,
+    val sortOrder: Int = 0,
 )
 
 data class PhotoItem(

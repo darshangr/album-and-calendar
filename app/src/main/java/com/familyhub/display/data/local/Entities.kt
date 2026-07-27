@@ -19,6 +19,15 @@ data class CalendarEventEntity(
     val source: String,
     val remoteId: String?,
     val colorArgb: Int?,
+    val memberId: Long? = null,
+)
+
+@Entity(tableName = "family_members")
+data class FamilyMemberEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val colorArgb: Int,
+    val sortOrder: Int,
 )
 
 @Entity(tableName = "photo_items")
@@ -44,6 +53,7 @@ fun CalendarEventEntity.toDomain() = com.familyhub.display.data.model.CalendarEv
     source = ContentSource.valueOf(source),
     remoteId = remoteId,
     colorArgb = colorArgb,
+    memberId = memberId,
 )
 
 fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEntity(
@@ -58,6 +68,21 @@ fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEnt
     source = source.name,
     remoteId = remoteId,
     colorArgb = colorArgb,
+    memberId = memberId,
+)
+
+fun FamilyMemberEntity.toDomain() = com.familyhub.display.data.model.FamilyMember(
+    id = id,
+    name = name,
+    colorArgb = colorArgb,
+    sortOrder = sortOrder,
+)
+
+fun com.familyhub.display.data.model.FamilyMember.toEntity() = FamilyMemberEntity(
+    id = id,
+    name = name,
+    colorArgb = colorArgb,
+    sortOrder = sortOrder,
 )
 
 fun PhotoItemEntity.toDomain() = com.familyhub.display.data.model.PhotoItem(

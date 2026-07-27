@@ -41,6 +41,24 @@ interface CalendarEventDao {
 }
 
 @Dao
+interface FamilyMemberDao {
+    @Query("SELECT * FROM family_members ORDER BY sortOrder ASC, id ASC")
+    fun observeAll(): Flow<List<FamilyMemberEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: FamilyMemberEntity): Long
+
+    @Update
+    suspend fun update(entity: FamilyMemberEntity)
+
+    @Query("DELETE FROM family_members WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("UPDATE calendar_events SET memberId = NULL WHERE memberId = :id")
+    suspend fun clearMemberFromEvents(id: Long)
+}
+
+@Dao
 interface PhotoItemDao {
     @Query("SELECT * FROM photo_items ORDER BY sortOrder ASC, id ASC")
     fun observeAll(): Flow<List<PhotoItemEntity>>

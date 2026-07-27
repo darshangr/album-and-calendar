@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -33,6 +34,7 @@ data class MainUiState(
     val googleAccount: com.familyhub.display.data.google.GoogleAccountState =
         com.familyhub.display.data.google.GoogleAccountState(),
     val pendingConsentIntent: android.content.Intent? = null,
+    val members: List<com.familyhub.display.data.model.FamilyMember> = emptyList(),
 )
 
 class MainViewModel(
@@ -61,9 +63,47 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
+            container.memberRepository.observeMembers().collect { members ->
+                _uiState.update { it.copy(members = members) }
+            }
+        }
+
+        viewModelScope.launch {
             if (container.googleAuthManager.getSignedInAccount() != null) {
                 syncNow()
             }
+        }
+    }
+
+    fun addMember(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val existing = _uiState.value.members
+            val color = com.familyhub.display.ui.theme.MemberColorPalette[
+                existing.size % com.familyhub.display.ui.theme.MemberColorPalette.size,
+            ]
+            container.memberRepository.upsert(
+                com.familyhub.display.data.model.FamilyMember(
+                    name = trimmed,
+                    colorArgb = color,
+                    sortOrder = existing.size,
+                ),
+            )
+        }
+    }
+
+    fun deleteMember(memberId: Long) {
+        viewModelScope.launch {
+            container.memberRepository.delete(memberId)
+        }
+    }
+
+    fun updateMemberColor(member: com.familyhub.display.data.model.FamilyMember) {
+        viewModelScope.launch {
+            val palette = com.familyhub.display.ui.theme.MemberColorPalette
+            val nextIndex = (palette.indexOf(member.colorArgb) + 1).mod(palette.size)
+            container.memberRepository.upsert(member.copy(colorArgb = palette[nextIndex]))
         }
     }
 
@@ -189,69 +229,129 @@ class MainViewModel(
     }
 }
 
+enum class CalendarViewMode { WEEK, MONTH }
+
 data class CalendarUiState(
-    val visibleMonth: LocalDate = LocalDate.now(),
+    val viewMode: CalendarViewMode = CalendarViewMode.WEEK,
+    val anchorDate: LocalDate = LocalDate.now(),
     val selectedDay: LocalDate = LocalDate.now(),
-    val monthEvents: List<CalendarEvent> = emptyList(),
-    val dayEvents: List<CalendarEvent> = emptyList(),
+    val rangeEvents: List<CalendarEvent> = emptyList(),
+    val members: List<com.familyhub.display.data.model.FamilyMember> = emptyList(),
     val upcomingEvents: List<CalendarEvent> = emptyList(),
     val showAddDialog: Boolean = false,
     val editingEvent: CalendarEvent? = null,
 )
 
+private data class RangeSpec(val mode: CalendarViewMode, val anchor: LocalDate)
+
+fun weekStart(date: LocalDate): LocalDate {
+    // Sunday-first week to match the month grid.
+    val offset = (date.dayOfWeek.value % 7).toLong()
+    return date.minusDays(offset)
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
-    private val visibleMonth = MutableStateFlow(LocalDate.now())
+    private val viewMode = MutableStateFlow(CalendarViewMode.WEEK)
+    private val anchorDate = MutableStateFlow(LocalDate.now())
     private val selectedDay = MutableStateFlow(LocalDate.now())
     private val dialogState = MutableStateFlow<Pair<Boolean, CalendarEvent?>>(false to null)
 
+    init {
+        viewModelScope.launch {
+            val settings = container.settingsRepository.settings.first()
+            viewMode.value = if (settings.weeklyViewDefault) CalendarViewMode.WEEK else CalendarViewMode.MONTH
+        }
+    }
+
+    private fun rangeFor(mode: CalendarViewMode, anchor: LocalDate): Pair<LocalDate, LocalDate> {
+        return when (mode) {
+            CalendarViewMode.WEEK -> {
+                val start = weekStart(anchor)
+                start to start.plusDays(7)
+            }
+            CalendarViewMode.MONTH -> {
+                val start = anchor.withDayOfMonth(1)
+                start to start.plusMonths(1)
+            }
+        }
+    }
+
+    private val rangeEventsFlow = combine(viewMode, anchorDate) { m, a -> RangeSpec(m, a) }
+        .flatMapLatest { spec ->
+            val (start, end) = rangeFor(spec.mode, spec.anchor)
+            container.calendarRepository.observeEventsForRange(start, end)
+                .map { spec to it }
+        }
+
+    private val upcomingFlow = container.calendarRepository
+        .observeEventsForRange(LocalDate.now(), LocalDate.now().plusDays(60))
+        .map { events ->
+            events.filter { it.startEpochMillis >= System.currentTimeMillis() }
+                .sortedBy { it.startEpochMillis }
+                .take(8)
+        }
+
     val uiState: StateFlow<CalendarUiState> = combine(
-        visibleMonth,
+        rangeEventsFlow,
         selectedDay,
         dialogState,
-    ) { month, day, dialog ->
-        Triple(month, day, dialog)
-    }.flatMapLatest { (month, day, dialog) ->
-        combine(
-            container.calendarRepository.observeEventsForMonth(month),
-            container.calendarRepository.observeEventsForDay(day),
-            container.calendarRepository.observeAllEvents().map { allEvents ->
-                allEvents
-                    .filter { it.startEpochMillis >= System.currentTimeMillis() }
-                    .sortedBy { it.startEpochMillis }
-                    .take(8)
-            },
-        ) { monthEvents, dayEvents, upcoming ->
-            CalendarUiState(
-                visibleMonth = month,
-                selectedDay = day,
-                monthEvents = monthEvents,
-                dayEvents = dayEvents,
-                upcomingEvents = upcoming,
-                showAddDialog = dialog.first,
-                editingEvent = dialog.second,
-            )
-        }
+        container.memberRepository.observeMembers(),
+        upcomingFlow,
+    ) { (spec, rangeEvents), day, dialog, members, upcoming ->
+        CalendarUiState(
+            viewMode = spec.mode,
+            anchorDate = spec.anchor,
+            selectedDay = day,
+            rangeEvents = rangeEvents,
+            members = members,
+            upcomingEvents = upcoming,
+            showAddDialog = dialog.first,
+            editingEvent = dialog.second,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarUiState())
+
+    fun setViewMode(mode: CalendarViewMode) {
+        viewMode.value = mode
+    }
 
     fun selectDay(day: LocalDate) {
         selectedDay.value = day
     }
 
-    fun goToPreviousMonth() {
-        visibleMonth.value = visibleMonth.value.minusMonths(1)
+    fun goToPrevious() {
+        val mode = viewMode.value
+        anchorDate.value = if (mode == CalendarViewMode.WEEK) {
+            anchorDate.value.minusWeeks(1)
+        } else {
+            anchorDate.value.minusMonths(1)
+        }
+        alignSelectedDayToRange()
     }
 
-    fun goToNextMonth() {
-        visibleMonth.value = visibleMonth.value.plusMonths(1)
+    fun goToNext() {
+        val mode = viewMode.value
+        anchorDate.value = if (mode == CalendarViewMode.WEEK) {
+            anchorDate.value.plusWeeks(1)
+        } else {
+            anchorDate.value.plusMonths(1)
+        }
+        alignSelectedDayToRange()
     }
 
     fun goToToday() {
         val today = LocalDate.now()
-        visibleMonth.value = today
+        anchorDate.value = today
         selectedDay.value = today
+    }
+
+    private fun alignSelectedDayToRange() {
+        val (start, end) = rangeFor(viewMode.value, anchorDate.value)
+        if (selectedDay.value.isBefore(start) || !selectedDay.value.isBefore(end)) {
+            selectedDay.value = start
+        }
     }
 
     fun showAddDialog() {

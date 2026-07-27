@@ -154,6 +154,7 @@ fun FamilyHubRoot(container: AppContainer) {
             SettingsScreen(
                 settings = mainState.settings,
                 googleAccount = mainState.googleAccount,
+                members = mainState.members,
                 onBack = { overlay = OverlayScreen.NONE },
                 onSave = { updated ->
                     mainViewModel.updateSettings { updated }
@@ -171,6 +172,9 @@ fun FamilyHubRoot(container: AppContainer) {
                 onLockToApp = {
                     runCatching { (context as? android.app.Activity)?.startLockTask() }
                 },
+                onAddMember = mainViewModel::addMember,
+                onDeleteMember = mainViewModel::deleteMember,
+                onRecolorMember = mainViewModel::updateMemberColor,
             )
         }
         OverlayScreen.NONE -> {
