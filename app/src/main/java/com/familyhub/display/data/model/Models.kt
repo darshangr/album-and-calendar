@@ -11,6 +11,7 @@ enum class EventType {
 enum class EventRecurrence {
     NONE,
     WEEKLY,
+    MONTHLY,
     YEARLY,
 }
 

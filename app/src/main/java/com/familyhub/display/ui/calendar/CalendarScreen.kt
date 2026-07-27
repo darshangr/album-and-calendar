@@ -2,6 +2,7 @@ package com.familyhub.display.ui.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Slideshow
@@ -41,6 +43,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -58,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,10 +79,13 @@ import com.familyhub.display.util.formatDayLabel
 import com.familyhub.display.util.formatEventTime
 import com.familyhub.display.util.formatMonthYear
 import com.familyhub.display.util.formatWeekRange
+import android.app.TimePickerDialog
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val zone: ZoneId = ZoneId.systemDefault()
 
@@ -218,6 +225,7 @@ fun CalendarScreen(
             initialEvent = uiState.editingEvent,
             selectedDay = uiState.selectedDay,
             members = uiState.members,
+            onAddMember = viewModel::addMember,
             onDismiss = viewModel::dismissDialog,
             onSave = viewModel::saveEvent,
             onDelete = viewModel::deleteEvent,
@@ -586,11 +594,18 @@ private fun EventEditorDialog(
     initialEvent: CalendarEvent?,
     selectedDay: LocalDate,
     members: List<FamilyMember>,
+    onAddMember: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: (CalendarEvent) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
-    val defaultStart = selectedDay.atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+    val context = LocalContext.current
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a") }
+
+    // The event keeps its date; only the time-of-day is edited here.
+    val baseDate = remember(initialEvent) {
+        initialEvent?.let { Instant.ofEpochMilli(it.startEpochMillis).atZone(zone).toLocalDate() } ?: selectedDay
+    }
 
     var title by remember(initialEvent) { mutableStateOf(initialEvent?.title.orEmpty()) }
     var notes by remember(initialEvent) { mutableStateOf(initialEvent?.notes.orEmpty()) }
@@ -599,6 +614,43 @@ private fun EventEditorDialog(
     var recurrence by remember(initialEvent) { mutableStateOf(initialEvent?.recurrence ?: EventRecurrence.NONE) }
     var memberId by remember(initialEvent) { mutableStateOf(initialEvent?.memberId) }
     var typeExpanded by remember { mutableStateOf(false) }
+
+    var startTime by remember(initialEvent) {
+        mutableStateOf(
+            initialEvent?.let { Instant.ofEpochMilli(it.startEpochMillis).atZone(zone).toLocalTime() }
+                ?: LocalTime.of(9, 0),
+        )
+    }
+    var endTime by remember(initialEvent) {
+        mutableStateOf(
+            initialEvent?.endEpochMillis?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
+                ?: startTime.plusHours(1),
+        )
+    }
+
+    // Inline "add member": remember the name to auto-select once it appears.
+    var addingMember by remember { mutableStateOf(false) }
+    var newMemberName by remember { mutableStateOf("") }
+    var pendingSelectName by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(members) {
+        pendingSelectName?.let { name ->
+            members.firstOrNull { it.name.equals(name, ignoreCase = true) }?.let {
+                memberId = it.id
+                pendingSelectName = null
+            }
+        }
+    }
+
+    fun showTimePicker(initial: LocalTime, onPicked: (LocalTime) -> Unit) {
+        TimePickerDialog(
+            context,
+            { _, hour, minute -> onPicked(LocalTime.of(hour, minute)) },
+            initial.hour,
+            initial.minute,
+            false,
+        ).show()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -622,36 +674,67 @@ private fun EventEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Text("Who", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    FilterChip(
-                        selected = memberId == null,
-                        onClick = { memberId = null },
-                        label = { Text("General / Family") },
-                    )
+                FilterChip(selected = allDay, onClick = { allDay = !allDay }, label = { Text("All day") })
+                if (!allDay) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { showTimePicker(startTime) { startTime = it } }) {
+                            Text("Start: ${startTime.format(timeFormatter)}")
+                        }
+                        OutlinedButton(onClick = { showTimePicker(endTime) { endTime = it } }) {
+                            Text("End: ${endTime.format(timeFormatter)}")
+                        }
+                    }
                 }
-                if (members.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        members.chunked(3).forEach { rowMembers ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                rowMembers.forEach { member ->
-                                    FilterChip(
-                                        selected = memberId == member.id,
-                                        onClick = { memberId = member.id },
-                                        leadingIcon = {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(member.colorArgb)),
-                                            )
-                                        },
-                                        label = { Text(member.name) },
-                                    )
-                                }
+
+                Text("Who", style = MaterialTheme.typography.labelLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (listOf<FamilyMember?>(null) + members).chunked(3).forEach { rowItems ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            rowItems.forEach { member ->
+                                FilterChip(
+                                    selected = memberId == member?.id,
+                                    onClick = { memberId = member?.id },
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(member?.colorArgb ?: GeneralEventColor)),
+                                        )
+                                    },
+                                    label = { Text(member?.name ?: "General / Family") },
+                                )
                             }
                         }
                     }
+                }
+                if (addingMember) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        OutlinedTextField(
+                            value = newMemberName,
+                            onValueChange = { newMemberName = it },
+                            label = { Text("New member name") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Button(
+                            onClick = {
+                                val name = newMemberName.trim()
+                                if (name.isNotEmpty()) {
+                                    onAddMember(name)
+                                    pendingSelectName = name
+                                }
+                                newMemberName = ""
+                                addingMember = false
+                            },
+                            enabled = newMemberName.isNotBlank(),
+                        ) { Text("Add") }
+                    }
+                } else {
+                    TextButton(onClick = { addingMember = true }) { Text("+ Add family member") }
                 }
 
                 ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = it }) {
@@ -672,12 +755,21 @@ private fun EventEditorDialog(
                         }
                     }
                 }
-                FilterChip(selected = allDay, onClick = { allDay = !allDay }, label = { Text("All day") })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Text("Repeats", style = MaterialTheme.typography.labelLarge)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                ) {
                     EventRecurrence.entries.forEach { option ->
                         FilterChip(
                             selected = recurrence == option,
                             onClick = { recurrence = option },
+                            leadingIcon = if (recurrence == option) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            } else {
+                                null
+                            },
                             label = { Text(option.name.lowercase().replaceFirstChar { it.titlecase() }) },
                         )
                     }
@@ -688,14 +780,24 @@ private fun EventEditorDialog(
             Button(
                 onClick = {
                     if (title.isBlank()) return@Button
+                    val startMillis = if (allDay) {
+                        baseDate.atStartOfDay(zone).toInstant().toEpochMilli()
+                    } else {
+                        baseDate.atTime(startTime).atZone(zone).toInstant().toEpochMilli()
+                    }
+                    val endMillis = if (allDay || !endTime.isAfter(startTime)) {
+                        null
+                    } else {
+                        baseDate.atTime(endTime).atZone(zone).toInstant().toEpochMilli()
+                    }
                     onSave(
                         CalendarEvent(
                             id = initialEvent?.id ?: 0L,
                             title = title.trim(),
                             notes = notes.trim(),
                             type = type,
-                            startEpochMillis = initialEvent?.startEpochMillis ?: defaultStart,
-                            endEpochMillis = initialEvent?.endEpochMillis,
+                            startEpochMillis = startMillis,
+                            endEpochMillis = endMillis,
                             allDay = allDay,
                             recurrence = recurrence,
                             source = initialEvent?.source ?: com.familyhub.display.data.model.ContentSource.LOCAL,

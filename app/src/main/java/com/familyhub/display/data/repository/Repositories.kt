@@ -87,9 +87,17 @@ class CalendarRepository(
             com.familyhub.display.data.model.EventRecurrence.NONE -> base == date
             com.familyhub.display.data.model.EventRecurrence.WEEKLY ->
                 base.dayOfWeek == date.dayOfWeek && !date.isBefore(base)
+            com.familyhub.display.data.model.EventRecurrence.MONTHLY ->
+                effectiveDayOfMonth(base, date) == date.dayOfMonth && !date.isBefore(base.withDayOfMonth(1))
             com.familyhub.display.data.model.EventRecurrence.YEARLY ->
                 base.monthValue == date.monthValue && base.dayOfMonth == date.dayOfMonth
         }
+    }
+
+    // Clamps the base day-of-month to months that are shorter (e.g. a 31st
+    // recurrence lands on the last day of shorter months).
+    private fun effectiveDayOfMonth(base: LocalDate, date: LocalDate): Int {
+        return minOf(base.dayOfMonth, date.lengthOfMonth())
     }
 
     private fun shiftEventToDate(

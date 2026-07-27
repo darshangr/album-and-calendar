@@ -379,6 +379,22 @@ class CalendarViewModel(
             dismissDialog()
         }
     }
+
+    fun addMember(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val existing = uiState.value.members
+            val palette = com.familyhub.display.ui.theme.MemberColorPalette
+            container.memberRepository.upsert(
+                com.familyhub.display.data.model.FamilyMember(
+                    name = trimmed,
+                    colorArgb = palette[existing.size % palette.size],
+                    sortOrder = existing.size,
+                ),
+            )
+        }
+    }
 }
 
 data class PhotoUiState(
