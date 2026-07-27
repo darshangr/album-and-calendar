@@ -52,6 +52,117 @@ class CalendarRepository(
         dao.deleteById(eventId)
     }
 
+    /**
+     * Moves a (possibly recurring) occurrence to [targetDate], preserving time of day.
+     * - Non-recurring: moves the event.
+     * - ALL_EVENTS: re-anchors the whole series to the new date.
+     * - THIS_EVENT: removes just this occurrence and creates a one-off on the new date.
+     */
+    suspend fun moveOccurrence(
+        occurrence: CalendarEvent,
+        targetDate: LocalDate,
+        scope: com.familyhub.display.data.model.EditScope,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ) {
+        val base = dao.getById(occurrence.id)?.toDomain() ?: return
+        val occurrenceDate = Instant.ofEpochMilli(occurrence.startEpochMillis).atZone(zoneId).toLocalDate()
+        val duration = base.endEpochMillis?.minus(base.startEpochMillis)
+        val timeOfDay = Instant.ofEpochMilli(base.startEpochMillis).atZone(zoneId).toLocalTime()
+
+        val newStart = if (base.allDay) {
+            targetDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        } else {
+            targetDate.atTime(timeOfDay).atZone(zoneId).toInstant().toEpochMilli()
+        }
+        val newEnd = duration?.let { newStart + it }
+
+        if (base.recurrence == com.familyhub.display.data.model.EventRecurrence.NONE ||
+            scope == com.familyhub.display.data.model.EditScope.ALL_EVENTS
+        ) {
+            dao.update(base.copy(startEpochMillis = newStart, endEpochMillis = newEnd).toEntity())
+        } else {
+            dao.update(base.copy(excludedDates = base.excludedDates + occurrenceDate).toEntity())
+            dao.insert(
+                base.copy(
+                    id = 0L,
+                    recurrence = com.familyhub.display.data.model.EventRecurrence.NONE,
+                    excludedDates = emptySet(),
+                    startEpochMillis = newStart,
+                    endEpochMillis = newEnd,
+                ).toEntity(),
+            )
+        }
+    }
+
+    /**
+     * Saves edits to a (possibly recurring) occurrence. [edited] carries the new fields with
+     * its start set on the occurrence's date. For ALL_EVENTS the series base keeps its own
+     * date but adopts the edited time/fields; for THIS_EVENT a one-off override is created.
+     */
+    suspend fun saveOccurrenceEdit(
+        edited: CalendarEvent,
+        scope: com.familyhub.display.data.model.EditScope,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ) {
+        val base = if (edited.id != 0L) dao.getById(edited.id)?.toDomain() else null
+        if (base == null || base.recurrence == com.familyhub.display.data.model.EventRecurrence.NONE) {
+            upsert(edited)
+            return
+        }
+
+        val occurrenceDate = Instant.ofEpochMilli(edited.startEpochMillis).atZone(zoneId).toLocalDate()
+        val editedStartTime = Instant.ofEpochMilli(edited.startEpochMillis).atZone(zoneId).toLocalTime()
+        val editedEndTime = edited.endEpochMillis?.let { Instant.ofEpochMilli(it).atZone(zoneId).toLocalTime() }
+
+        if (scope == com.familyhub.display.data.model.EditScope.ALL_EVENTS) {
+            val baseDate = Instant.ofEpochMilli(base.startEpochMillis).atZone(zoneId).toLocalDate()
+            val newStart = if (edited.allDay) {
+                baseDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            } else {
+                baseDate.atTime(editedStartTime).atZone(zoneId).toInstant().toEpochMilli()
+            }
+            val newEnd = if (edited.allDay || editedEndTime == null) {
+                null
+            } else {
+                baseDate.atTime(editedEndTime).atZone(zoneId).toInstant().toEpochMilli()
+            }
+            dao.update(
+                edited.copy(
+                    id = base.id,
+                    startEpochMillis = newStart,
+                    endEpochMillis = newEnd,
+                    excludedDates = base.excludedDates,
+                ).toEntity(),
+            )
+        } else {
+            dao.update(base.copy(excludedDates = base.excludedDates + occurrenceDate).toEntity())
+            dao.insert(
+                edited.copy(
+                    id = 0L,
+                    recurrence = com.familyhub.display.data.model.EventRecurrence.NONE,
+                    excludedDates = emptySet(),
+                ).toEntity(),
+            )
+        }
+    }
+
+    /** Deletes a recurring occurrence (THIS_EVENT excludes the date; ALL_EVENTS removes the series). */
+    suspend fun deleteOccurrence(
+        occurrence: CalendarEvent,
+        scope: com.familyhub.display.data.model.EditScope,
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ) {
+        val base = dao.getById(occurrence.id)?.toDomain()
+        if (base == null || base.recurrence == com.familyhub.display.data.model.EventRecurrence.NONE ||
+            scope == com.familyhub.display.data.model.EditScope.ALL_EVENTS
+        ) {
+            dao.deleteById(occurrence.id)
+            return
+        }
+        val occurrenceDate = Instant.ofEpochMilli(occurrence.startEpochMillis).atZone(zoneId).toLocalDate()
+        dao.update(base.copy(excludedDates = base.excludedDates + occurrenceDate).toEntity())
+    }
+
     suspend fun replaceCloudEvents(events: List<CalendarEvent>) {
         dao.deleteCloudEvents()
         dao.insertAll(events.map { it.toEntity() })
@@ -83,6 +194,11 @@ class CalendarRepository(
 
     private fun occursOn(event: CalendarEvent, date: LocalDate, zoneId: ZoneId): Boolean {
         val base = Instant.ofEpochMilli(event.startEpochMillis).atZone(zoneId).toLocalDate()
+        if (event.recurrence != com.familyhub.display.data.model.EventRecurrence.NONE &&
+            date in event.excludedDates
+        ) {
+            return false
+        }
         return when (event.recurrence) {
             com.familyhub.display.data.model.EventRecurrence.NONE -> base == date
             com.familyhub.display.data.model.EventRecurrence.WEEKLY ->

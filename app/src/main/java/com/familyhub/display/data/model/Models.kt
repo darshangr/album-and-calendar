@@ -35,7 +35,14 @@ data class CalendarEvent(
     val colorArgb: Int? = null,
     // Null = general / family-wide event.
     val memberId: Long? = null,
+    // Occurrence dates removed from a recurring series ("this event only" edits/deletes).
+    val excludedDates: Set<java.time.LocalDate> = emptySet(),
 )
+
+enum class EditScope {
+    THIS_EVENT,
+    ALL_EVENTS,
+}
 
 data class FamilyMember(
     val id: Long = 0,

@@ -366,17 +366,27 @@ class CalendarViewModel(
         dialogState.value = false to null
     }
 
-    fun saveEvent(event: CalendarEvent) {
+    fun saveEvent(event: CalendarEvent, scope: com.familyhub.display.data.model.EditScope) {
         viewModelScope.launch {
-            container.calendarRepository.upsert(event)
+            container.calendarRepository.saveOccurrenceEdit(event, scope)
             dismissDialog()
         }
     }
 
-    fun deleteEvent(eventId: Long) {
+    fun deleteEvent(event: CalendarEvent, scope: com.familyhub.display.data.model.EditScope) {
         viewModelScope.launch {
-            container.calendarRepository.delete(eventId)
+            container.calendarRepository.deleteOccurrence(event, scope)
             dismissDialog()
+        }
+    }
+
+    fun moveEvent(
+        occurrence: CalendarEvent,
+        targetDate: LocalDate,
+        scope: com.familyhub.display.data.model.EditScope,
+    ) {
+        viewModelScope.launch {
+            container.calendarRepository.moveOccurrence(occurrence, targetDate, scope)
         }
     }
 

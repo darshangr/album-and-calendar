@@ -13,6 +13,9 @@ Built for **Samsung Galaxy Tab S11** (11" display) and designed to scale gracefu
 - Event types: birthdays, parties, events, kids recurring classes, and other reminders
 - Recurring events: none, weekly, yearly
 - Notes on any event
+- Start/end time pickers; repeats none/weekly/monthly/yearly
+- **Drag to move**: long‑press an event in the Week view and drag it to another day
+- **Recurring edits** prompt "This event only" vs "All events" (move/edit/delete)
 - Add and edit events locally on the device
 - Pull events from Google Calendar or a remote cloud API
 

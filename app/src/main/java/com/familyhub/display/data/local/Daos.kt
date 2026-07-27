@@ -12,6 +12,9 @@ interface CalendarEventDao {
     @Query("SELECT * FROM calendar_events ORDER BY startEpochMillis ASC")
     fun observeAll(): Flow<List<CalendarEventEntity>>
 
+    @Query("SELECT * FROM calendar_events WHERE id = :id")
+    suspend fun getById(id: Long): CalendarEventEntity?
+
     @Query(
         """
         SELECT * FROM calendar_events

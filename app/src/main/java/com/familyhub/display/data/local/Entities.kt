@@ -20,6 +20,7 @@ data class CalendarEventEntity(
     val remoteId: String?,
     val colorArgb: Int?,
     val memberId: Long? = null,
+    val excludedDates: String = "",
 )
 
 @Entity(tableName = "family_members")
@@ -54,6 +55,13 @@ fun CalendarEventEntity.toDomain() = com.familyhub.display.data.model.CalendarEv
     remoteId = remoteId,
     colorArgb = colorArgb,
     memberId = memberId,
+    excludedDates = if (excludedDates.isBlank()) {
+        emptySet()
+    } else {
+        excludedDates.split(",")
+            .mapNotNull { runCatching { java.time.LocalDate.parse(it.trim()) }.getOrNull() }
+            .toSet()
+    },
 )
 
 fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEntity(
@@ -69,6 +77,7 @@ fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEnt
     remoteId = remoteId,
     colorArgb = colorArgb,
     memberId = memberId,
+    excludedDates = excludedDates.map { it.toString() }.sorted().joinToString(","),
 )
 
 fun FamilyMemberEntity.toDomain() = com.familyhub.display.data.model.FamilyMember(

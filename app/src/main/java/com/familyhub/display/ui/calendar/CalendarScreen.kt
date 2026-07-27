@@ -2,6 +2,7 @@ package com.familyhub.display.ui.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,19 +55,28 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.familyhub.display.data.model.CalendarEvent
+import com.familyhub.display.data.model.EditScope
 import com.familyhub.display.data.model.EventRecurrence
 import com.familyhub.display.data.model.EventType
 import com.familyhub.display.data.model.FamilyMember
@@ -111,6 +121,10 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var moveScopePrompt by remember { mutableStateOf<Pair<CalendarEvent, LocalDate>?>(null) }
+    var saveScopePrompt by remember { mutableStateOf<CalendarEvent?>(null) }
+    var deleteScopePrompt by remember { mutableStateOf<CalendarEvent?>(null) }
 
     LaunchedEffect(syncMessage) {
         syncMessage?.let {
@@ -174,6 +188,14 @@ fun CalendarScreen(
                         members = uiState.members,
                         onSelectDay = { onUserInteraction(); viewModel.selectDay(it) },
                         onEventClick = { onUserInteraction(); viewModel.showEditDialog(it) },
+                        onMoveRequest = { ev, target ->
+                            onUserInteraction()
+                            if (ev.recurrence != EventRecurrence.NONE) {
+                                moveScopePrompt = ev to target
+                            } else {
+                                viewModel.moveEvent(ev, target, EditScope.ALL_EVENTS)
+                            }
+                        },
                     )
                     CalendarViewMode.MONTH -> MonthGrid(
                         visibleMonth = uiState.anchorDate,
@@ -227,8 +249,49 @@ fun CalendarScreen(
             members = uiState.members,
             onAddMember = viewModel::addMember,
             onDismiss = viewModel::dismissDialog,
-            onSave = viewModel::saveEvent,
-            onDelete = viewModel::deleteEvent,
+            onSave = { edited ->
+                val editing = uiState.editingEvent
+                if (editing != null && editing.recurrence != EventRecurrence.NONE) {
+                    saveScopePrompt = edited
+                } else {
+                    viewModel.saveEvent(edited, EditScope.ALL_EVENTS)
+                }
+            },
+            onDelete = { ev ->
+                if (ev.recurrence != EventRecurrence.NONE) {
+                    deleteScopePrompt = ev
+                } else {
+                    viewModel.deleteEvent(ev, EditScope.ALL_EVENTS)
+                }
+            },
+        )
+    }
+
+    moveScopePrompt?.let { (ev, target) ->
+        EditScopeDialog(
+            title = "Move repeating event",
+            message = "Move only this occurrence, or the whole repeating series?",
+            onThisEvent = { viewModel.moveEvent(ev, target, EditScope.THIS_EVENT); moveScopePrompt = null },
+            onAllEvents = { viewModel.moveEvent(ev, target, EditScope.ALL_EVENTS); moveScopePrompt = null },
+            onDismiss = { moveScopePrompt = null },
+        )
+    }
+    saveScopePrompt?.let { edited ->
+        EditScopeDialog(
+            title = "Edit repeating event",
+            message = "Apply changes to only this occurrence, or the whole repeating series?",
+            onThisEvent = { viewModel.saveEvent(edited, EditScope.THIS_EVENT); saveScopePrompt = null },
+            onAllEvents = { viewModel.saveEvent(edited, EditScope.ALL_EVENTS); saveScopePrompt = null },
+            onDismiss = { saveScopePrompt = null },
+        )
+    }
+    deleteScopePrompt?.let { ev ->
+        EditScopeDialog(
+            title = "Delete repeating event",
+            message = "Delete only this occurrence, or the whole repeating series?",
+            onThisEvent = { viewModel.deleteEvent(ev, EditScope.THIS_EVENT); deleteScopePrompt = null },
+            onAllEvents = { viewModel.deleteEvent(ev, EditScope.ALL_EVENTS); deleteScopePrompt = null },
+            onDismiss = { deleteScopePrompt = null },
         )
     }
 
@@ -237,6 +300,28 @@ fun CalendarScreen(
             Text("Syncing…", style = MaterialTheme.typography.titleMedium)
         }
     }
+}
+
+@Composable
+private fun EditScopeDialog(
+    title: String,
+    message: String,
+    onThisEvent: () -> Unit,
+    onAllEvents: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = { TextButton(onClick = onAllEvents) { Text("All events") } },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onThisEvent) { Text("This event") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 @Composable
@@ -278,6 +363,8 @@ private fun CalendarHeader(
     }
 }
 
+private fun eventKey(event: CalendarEvent): String = "${event.id}-${event.startEpochMillis}"
+
 @Composable
 private fun WeekView(
     weekStart: LocalDate,
@@ -286,8 +373,25 @@ private fun WeekView(
     members: List<FamilyMember>,
     onSelectDay: (LocalDate) -> Unit,
     onEventClick: (CalendarEvent) -> Unit,
+    onMoveRequest: (CalendarEvent, LocalDate) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    var columnWidthPx by remember { mutableFloatStateOf(0f) }
+    var draggingKey by remember { mutableStateOf<String?>(null) }
+    var dragTotal by remember { mutableStateOf(Offset.Zero) }
+    var dragSourceIndex by remember { mutableIntStateOf(0) }
+
+    val targetIndex: Int? = if (draggingKey != null && columnWidthPx > 0f) {
+        (dragSourceIndex + (dragTotal.x / columnWidthPx).roundToInt()).coerceIn(0, 6)
+    } else {
+        null
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { columnWidthPx = it.size.width / 7f },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         for (i in 0 until 7) {
             val date = weekStart.plusDays(i.toLong())
             val dayEvents = events.filter { eventDate(it) == date }
@@ -295,10 +399,34 @@ private fun WeekView(
                 date = date,
                 isSelected = date == selectedDay,
                 isToday = date == LocalDate.now(),
+                isDropTarget = targetIndex == i,
                 events = dayEvents,
                 members = members,
+                draggingKey = draggingKey,
+                dragTranslation = dragTotal,
                 onSelect = { onSelectDay(date) },
                 onEventClick = onEventClick,
+                onEventDragStart = { ev ->
+                    draggingKey = eventKey(ev)
+                    dragTotal = Offset.Zero
+                    dragSourceIndex = i
+                },
+                onEventDrag = { delta -> dragTotal += delta },
+                onEventDragEnd = { ev ->
+                    val ti = if (columnWidthPx > 0f) {
+                        (i + (dragTotal.x / columnWidthPx).roundToInt()).coerceIn(0, 6)
+                    } else {
+                        i
+                    }
+                    draggingKey = null
+                    dragTotal = Offset.Zero
+                    val target = weekStart.plusDays(ti.toLong())
+                    if (target != eventDate(ev)) onMoveRequest(ev, target)
+                },
+                onEventDragCancel = {
+                    draggingKey = null
+                    dragTotal = Offset.Zero
+                },
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
@@ -310,10 +438,17 @@ private fun DayColumn(
     date: LocalDate,
     isSelected: Boolean,
     isToday: Boolean,
+    isDropTarget: Boolean,
     events: List<CalendarEvent>,
     members: List<FamilyMember>,
+    draggingKey: String?,
+    dragTranslation: Offset,
     onSelect: () -> Unit,
     onEventClick: (CalendarEvent) -> Unit,
+    onEventDragStart: (CalendarEvent) -> Unit,
+    onEventDrag: (Offset) -> Unit,
+    onEventDragEnd: (CalendarEvent) -> Unit,
+    onEventDragCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val headerBg = when {
@@ -321,10 +456,15 @@ private fun DayColumn(
         isToday -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)
         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     }
+    val columnBg = if (isDropTarget) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface),
+            .background(columnBg),
     ) {
         Column(
             modifier = Modifier
@@ -353,10 +493,17 @@ private fun DayColumn(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             events.forEach { event ->
+                val isDragging = draggingKey == eventKey(event)
                 EventChip(
                     event = event,
                     color = colorForEvent(event, members),
+                    isDragging = isDragging,
+                    dragTranslation = if (isDragging) dragTranslation else Offset.Zero,
                     onClick = { onEventClick(event) },
+                    onDragStart = { onEventDragStart(event) },
+                    onDrag = onEventDrag,
+                    onDragEnd = { onEventDragEnd(event) },
+                    onDragCancel = onEventDragCancel,
                 )
             }
         }
@@ -364,12 +511,46 @@ private fun DayColumn(
 }
 
 @Composable
-private fun EventChip(event: CalendarEvent, color: Color, onClick: () -> Unit) {
+private fun EventChip(
+    event: CalendarEvent,
+    color: Color,
+    isDragging: Boolean,
+    dragTranslation: Offset,
+    onClick: () -> Unit,
+    onDragStart: () -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (isDragging) {
+                    Modifier
+                        .zIndex(2f)
+                        .graphicsLayer {
+                            translationX = dragTranslation.x
+                            translationY = dragTranslation.y
+                            alpha = 0.9f
+                        }
+                } else {
+                    Modifier
+                },
+            )
             .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.16f))
+            .background(color.copy(alpha = if (isDragging) 0.32f else 0.16f))
+            .pointerInput(event.id, event.startEpochMillis) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { onDragStart() },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        onDrag(dragAmount)
+                    },
+                    onDragEnd = { onDragEnd() },
+                    onDragCancel = { onDragCancel() },
+                )
+            }
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
@@ -597,7 +778,7 @@ private fun EventEditorDialog(
     onAddMember: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: (CalendarEvent) -> Unit,
-    onDelete: (Long) -> Unit,
+    onDelete: (CalendarEvent) -> Unit,
 ) {
     val context = LocalContext.current
     val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a") }
@@ -814,7 +995,7 @@ private fun EventEditorDialog(
         dismissButton = {
             Row {
                 if (initialEvent != null) {
-                    TextButton(onClick = { onDelete(initialEvent.id) }) { Text("Delete") }
+                    TextButton(onClick = { onDelete(initialEvent) }) { Text("Delete") }
                 }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
