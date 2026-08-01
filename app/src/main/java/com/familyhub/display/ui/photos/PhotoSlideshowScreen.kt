@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,7 +50,7 @@ import coil.compose.AsyncImage
 import com.familyhub.display.data.model.ContentSource
 import com.familyhub.display.data.model.PhotoItem
 import com.familyhub.display.ui.viewmodel.PhotoViewModel
-import com.familyhub.display.util.detectDoubleTap
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 
 @Composable
@@ -70,7 +73,25 @@ fun PhotoSlideshowScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .detectDoubleTap(onDoubleTapToCalendar)
+            .pointerInput(Unit) {
+                detectTapGestures(onDoubleTap = { onDoubleTapToCalendar() })
+            }
+            .pointerInput(photos.size) {
+                var totalDrag = 0f
+                val swipeThreshold = 48.dp.toPx()
+                detectHorizontalDragGestures(
+                    onDragStart = { totalDrag = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        totalDrag += dragAmount
+                        change.consume()
+                    },
+                    onDragEnd = {
+                        if (abs(totalDrag) >= swipeThreshold) {
+                            if (totalDrag < 0) viewModel.advancePhoto() else viewModel.previousPhoto()
+                        }
+                    },
+                )
+            }
             .background(MaterialTheme.colorScheme.background),
     ) {
         if (photos.isEmpty()) {
@@ -110,7 +131,7 @@ fun PhotoSlideshowScreen(
             }
 
             Text(
-                text = "Double tap to open calendar",
+                text = "Swipe for next photo  •  Double tap for calendar",
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 20.dp)

@@ -1,13 +1,5 @@
 package com.familyhub.display.util
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import com.familyhub.display.data.model.EventType
 import com.familyhub.display.ui.theme.EventBirthday
 import com.familyhub.display.ui.theme.EventClass
@@ -21,27 +13,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-private const val DOUBLE_TAP_TIMEOUT_MS = 350L
-
-@Composable
-fun Modifier.detectDoubleTap(onDoubleTap: () -> Unit): Modifier {
-    var lastTapEpochMillis by remember { mutableLongStateOf(0L) }
-
-    return pointerInput(Unit) {
-        detectTapGestures(
-            onTap = {
-                val now = System.currentTimeMillis()
-                if (now - lastTapEpochMillis <= DOUBLE_TAP_TIMEOUT_MS) {
-                    onDoubleTap()
-                    lastTapEpochMillis = 0L
-                } else {
-                    lastTapEpochMillis = now
-                }
-            },
-        )
-    }
-}
-
 fun formatEventTime(epochMillis: Long, allDay: Boolean, zoneId: ZoneId = ZoneId.systemDefault()): String {
     if (allDay) {
         return "All day"
@@ -52,6 +23,20 @@ fun formatEventTime(epochMillis: Long, allDay: Boolean, zoneId: ZoneId = ZoneId.
 
 fun formatMonthYear(month: LocalDate): String {
     return month.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) + " " + month.year
+}
+
+fun formatWeekRange(weekStart: LocalDate): String {
+    val weekEnd = weekStart.plusDays(6)
+    val startFmt = DateTimeFormatter.ofPattern("MMM d")
+    return if (weekStart.month == weekEnd.month) {
+        "${weekStart.format(startFmt)} – ${weekEnd.dayOfMonth}, ${weekEnd.year}"
+    } else {
+        "${weekStart.format(startFmt)} – ${weekEnd.format(startFmt)}, ${weekEnd.year}"
+    }
+}
+
+fun eventColorArgb(memberId: Long?, memberColors: Map<Long, Int>): Int {
+    return memberId?.let { memberColors[it] } ?: com.familyhub.display.ui.theme.GeneralEventColor
 }
 
 fun formatDayLabel(day: LocalDate): String {

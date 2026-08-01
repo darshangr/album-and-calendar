@@ -7,12 +7,21 @@ Built for **Samsung Galaxy Tab S11** (11" display) and designed to scale gracefu
 ## Features
 
 ### Family calendar
-- Month grid with color-coded event dots
-- Day detail panel and upcoming events list
+- **Weekly** (day columns, default) and **Monthly** views; switch in the top bar, default configurable in Settings
+- **Family members**: add members in Settings; assign each event to a member (color-coded) or leave it as a general/family event
+- Selected-day panel groups events **by family member**
 - Event types: birthdays, parties, events, kids recurring classes, and other reminders
 - Recurring events: none, weekly, yearly
+- Notes on any event
+- Start/end time pickers; repeats none/weekly/monthly/yearly
+- **Drag to move**: long‑press an event in the Week view and drag it to another day
+- **Recurring edits** prompt "This event only" vs "All events" (move/edit/delete)
 - Add and edit events locally on the device
-- Pull events from a remote cloud API (optional)
+- Pull events from Google Calendar or a remote cloud API
+
+### Display & kiosk
+- **Night sleep**: screen dims to black between configurable hours (default 21:00–07:00); tap to wake
+- **Immersive fullscreen**: hides status/navigation bars; optional screen pinning to lock the tablet to the app
 
 ### Photo slideshow
 - Full-screen auto-advancing photo frame

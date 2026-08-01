@@ -19,6 +19,16 @@ data class CalendarEventEntity(
     val source: String,
     val remoteId: String?,
     val colorArgb: Int?,
+    val memberId: Long? = null,
+    val excludedDates: String = "",
+)
+
+@Entity(tableName = "family_members")
+data class FamilyMemberEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val colorArgb: Int,
+    val sortOrder: Int,
 )
 
 @Entity(tableName = "photo_items")
@@ -44,6 +54,14 @@ fun CalendarEventEntity.toDomain() = com.familyhub.display.data.model.CalendarEv
     source = ContentSource.valueOf(source),
     remoteId = remoteId,
     colorArgb = colorArgb,
+    memberId = memberId,
+    excludedDates = if (excludedDates.isBlank()) {
+        emptySet()
+    } else {
+        excludedDates.split(",")
+            .mapNotNull { runCatching { java.time.LocalDate.parse(it.trim()) }.getOrNull() }
+            .toSet()
+    },
 )
 
 fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEntity(
@@ -58,6 +76,22 @@ fun com.familyhub.display.data.model.CalendarEvent.toEntity() = CalendarEventEnt
     source = source.name,
     remoteId = remoteId,
     colorArgb = colorArgb,
+    memberId = memberId,
+    excludedDates = excludedDates.map { it.toString() }.sorted().joinToString(","),
+)
+
+fun FamilyMemberEntity.toDomain() = com.familyhub.display.data.model.FamilyMember(
+    id = id,
+    name = name,
+    colorArgb = colorArgb,
+    sortOrder = sortOrder,
+)
+
+fun com.familyhub.display.data.model.FamilyMember.toEntity() = FamilyMemberEntity(
+    id = id,
+    name = name,
+    colorArgb = colorArgb,
+    sortOrder = sortOrder,
 )
 
 fun PhotoItemEntity.toDomain() = com.familyhub.display.data.model.PhotoItem(

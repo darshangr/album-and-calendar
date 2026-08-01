@@ -23,6 +23,11 @@ data class AppSettings(
     val syncIntervalHours: Int = 6,
     val lastSyncEpochMillis: Long = 0L,
     val driveFolderId: String = "",
+    val immersiveFullscreen: Boolean = true,
+    val nightSleepEnabled: Boolean = true,
+    val sleepStartHour: Int = 21,
+    val wakeHour: Int = 7,
+    val weeklyViewDefault: Boolean = true,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -35,6 +40,11 @@ class SettingsRepository(private val context: Context) {
         val syncIntervalHours = intPreferencesKey("sync_interval_hours")
         val lastSyncEpochMillis = longPreferencesKey("last_sync_epoch_millis")
         val driveFolderId = stringPreferencesKey("drive_folder_id")
+        val immersiveFullscreen = booleanPreferencesKey("immersive_fullscreen")
+        val nightSleepEnabled = booleanPreferencesKey("night_sleep_enabled")
+        val sleepStartHour = intPreferencesKey("sleep_start_hour")
+        val wakeHour = intPreferencesKey("wake_hour")
+        val weeklyViewDefault = booleanPreferencesKey("weekly_view_default")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -47,6 +57,11 @@ class SettingsRepository(private val context: Context) {
             syncIntervalHours = prefs[Keys.syncIntervalHours] ?: 6,
             lastSyncEpochMillis = prefs[Keys.lastSyncEpochMillis] ?: 0L,
             driveFolderId = prefs[Keys.driveFolderId].orEmpty(),
+            immersiveFullscreen = prefs[Keys.immersiveFullscreen] ?: true,
+            nightSleepEnabled = prefs[Keys.nightSleepEnabled] ?: true,
+            sleepStartHour = prefs[Keys.sleepStartHour] ?: 21,
+            wakeHour = prefs[Keys.wakeHour] ?: 7,
+            weeklyViewDefault = prefs[Keys.weeklyViewDefault] ?: true,
         )
     }
 
@@ -61,6 +76,11 @@ class SettingsRepository(private val context: Context) {
                 syncIntervalHours = prefs[Keys.syncIntervalHours] ?: 6,
                 lastSyncEpochMillis = prefs[Keys.lastSyncEpochMillis] ?: 0L,
                 driveFolderId = prefs[Keys.driveFolderId].orEmpty(),
+                immersiveFullscreen = prefs[Keys.immersiveFullscreen] ?: true,
+                nightSleepEnabled = prefs[Keys.nightSleepEnabled] ?: true,
+                sleepStartHour = prefs[Keys.sleepStartHour] ?: 21,
+                wakeHour = prefs[Keys.wakeHour] ?: 7,
+                weeklyViewDefault = prefs[Keys.weeklyViewDefault] ?: true,
             )
             val updated = transform(current)
             prefs[Keys.calendarIdleTimeoutMinutes] = updated.calendarIdleTimeoutMinutes
@@ -71,6 +91,11 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.syncIntervalHours] = updated.syncIntervalHours
             prefs[Keys.lastSyncEpochMillis] = updated.lastSyncEpochMillis
             prefs[Keys.driveFolderId] = updated.driveFolderId
+            prefs[Keys.immersiveFullscreen] = updated.immersiveFullscreen
+            prefs[Keys.nightSleepEnabled] = updated.nightSleepEnabled
+            prefs[Keys.sleepStartHour] = updated.sleepStartHour
+            prefs[Keys.wakeHour] = updated.wakeHour
+            prefs[Keys.weeklyViewDefault] = updated.weeklyViewDefault
         }
     }
 }

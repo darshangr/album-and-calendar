@@ -11,6 +11,7 @@ enum class EventType {
 enum class EventRecurrence {
     NONE,
     WEEKLY,
+    MONTHLY,
     YEARLY,
 }
 
@@ -32,6 +33,22 @@ data class CalendarEvent(
     val source: ContentSource = ContentSource.LOCAL,
     val remoteId: String? = null,
     val colorArgb: Int? = null,
+    // Null = general / family-wide event.
+    val memberId: Long? = null,
+    // Occurrence dates removed from a recurring series ("this event only" edits/deletes).
+    val excludedDates: Set<java.time.LocalDate> = emptySet(),
+)
+
+enum class EditScope {
+    THIS_EVENT,
+    ALL_EVENTS,
+}
+
+data class FamilyMember(
+    val id: Long = 0,
+    val name: String,
+    val colorArgb: Int,
+    val sortOrder: Int = 0,
 )
 
 data class PhotoItem(

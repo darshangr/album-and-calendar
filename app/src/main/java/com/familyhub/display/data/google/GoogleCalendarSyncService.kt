@@ -96,6 +96,7 @@ class GoogleCalendarSyncService(
         val rule = recurrenceRules?.firstOrNull()?.uppercase().orEmpty()
         return when {
             "FREQ=YEARLY" in rule -> EventRecurrence.YEARLY
+            "FREQ=MONTHLY" in rule -> EventRecurrence.MONTHLY
             "FREQ=WEEKLY" in rule -> EventRecurrence.WEEKLY
             else -> EventRecurrence.NONE
         }

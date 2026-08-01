@@ -11,6 +11,7 @@ import com.familyhub.display.data.google.GoogleAuthManager
 import com.familyhub.display.data.google.GoogleCalendarSyncService
 import com.familyhub.display.data.google.GoogleDriveSyncService
 import com.familyhub.display.data.repository.CalendarRepository
+import com.familyhub.display.data.repository.MemberRepository
 import com.familyhub.display.data.repository.PhotoRepository
 import com.familyhub.display.data.repository.SyncRepository
 import com.familyhub.display.data.settings.SettingsRepository
@@ -28,6 +29,7 @@ class AppContainer(context: Context) {
     val googleCalendarSyncService = GoogleCalendarSyncService(googleAuthManager)
     val googleDriveSyncService = GoogleDriveSyncService(appContext, googleAuthManager)
     val calendarRepository = CalendarRepository(database.calendarEventDao())
+    val memberRepository = MemberRepository(database.familyMemberDao())
     val photoRepository = PhotoRepository(database.photoItemDao())
     val syncRepository = SyncRepository(
         calendarRepository = calendarRepository,
